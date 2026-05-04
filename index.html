@@ -1,0 +1,2434 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RDKit — Chemistry Toolkit</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400&family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,700;1,9..144,300&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<style>
+  :root {
+    --bg: #0a0e0b;
+    --surface: #0f1710;
+    --card: #141f15;
+    --border: #1e3020;
+    --accent: #4eff7c;
+    --accent2: #b8ff6a;
+    --accent3: #00e5b0;
+    --text: #d4f0d8;
+    --muted: #7aa880;
+    --white: #f0faf2;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Space Mono', monospace;
+    overflow-x: hidden;
+  }
+
+  /* ── NOISE OVERLAY ── */
+  body::before {
+    content: '';
+    position: fixed; inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E");
+    pointer-events: none; z-index: 999; opacity: 0.4;
+  }
+
+  /* ── NAV ── */
+  nav {
+    position: sticky; top: 0; z-index: 100;
+    background: rgba(10,14,11,0.9);
+    backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--border);
+    padding: 0 2rem;
+    display: flex; align-items: center; justify-content: space-between;
+    height: 60px;
+  }
+  .logo {
+    font-family: 'Fraunces', serif;
+    font-size: 1.4rem;
+    color: var(--accent);
+    letter-spacing: -1px;
+    font-weight: 700;
+  }
+  .logo span { color: var(--muted); font-weight: 300; }
+  .nav-links { display: flex; gap: 2rem; }
+  .nav-links a {
+    color: var(--muted);
+    text-decoration: none;
+    font-size: 0.75rem;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    transition: color 0.2s;
+  }
+  .nav-links a:hover { color: var(--accent); }
+
+  /* ── MOBILE/DESKTOP HELPERS ── */
+  .desktop-only { display: inline; }
+  .mobile-only { display: none; }
+  
+  @media (hover: none) and (pointer: coarse) {
+    .desktop-only { display: none; }
+    .mobile-only { display: inline; }
+    #mobileControls { display: grid !important; }
+  }
+
+  /* ── HERO ── */
+  .hero {
+    min-height: 92vh;
+    display: flex; flex-direction: column; justify-content: center; align-items: flex-start;
+    padding: 4rem 4rem 2rem;
+    position: relative;
+    overflow: hidden;
+  }
+  .hero-bg {
+    position: absolute; right: -100px; top: 50%;
+    transform: translateY(-50%);
+    width: 700px; height: 700px;
+    background: radial-gradient(circle at center, rgba(78,255,124,0.06) 0%, transparent 70%);
+    pointer-events: none;
+  }
+  /* Animated molecule ring */
+  .mol-ring {
+    position: absolute; right: 80px; top: 50%;
+    transform: translateY(-50%);
+    width: 420px; height: 420px;
+    animation: spin 40s linear infinite;
+  }
+  @keyframes spin { to { transform: translateY(-50%) rotate(360deg); } }
+
+  .badge {
+    display: inline-block;
+    background: rgba(78,255,124,0.1);
+    border: 1px solid rgba(78,255,124,0.3);
+    color: var(--accent);
+    font-size: 0.7rem;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    padding: 6px 14px;
+    border-radius: 2px;
+    margin-bottom: 2rem;
+    animation: fadeUp 0.6s ease forwards;
+  }
+  .hero h1 {
+    font-family: 'Fraunces', serif;
+    font-size: clamp(3rem, 8vw, 7rem);
+    line-height: 1;
+    font-weight: 700;
+    letter-spacing: -3px;
+    color: var(--white);
+    animation: fadeUp 0.7s ease 0.1s both;
+  }
+  .hero h1 em {
+    font-style: italic;
+    color: var(--accent);
+    display: block;
+  }
+  .hero p {
+    max-width: 500px;
+    margin: 2rem 0 3rem;
+    color: var(--muted);
+    line-height: 1.8;
+    font-size: 0.85rem;
+    animation: fadeUp 0.7s ease 0.2s both;
+  }
+  .hero-btns {
+    display: flex; gap: 1rem; flex-wrap: wrap;
+    animation: fadeUp 0.7s ease 0.3s both;
+  }
+  .btn-primary {
+    background: var(--accent);
+    color: #000;
+    padding: 14px 28px;
+    border: none; cursor: pointer;
+    font-family: 'Space Mono', monospace;
+    font-size: 0.8rem;
+    font-weight: 700;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    transition: all 0.2s;
+    clip-path: polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 10px 100%, 0 calc(100% - 10px));
+    text-decoration: none; display: inline-block;
+  }
+  .btn-primary:hover { background: var(--accent2); transform: translateY(-2px); }
+  .btn-outline {
+    background: transparent;
+    color: var(--accent);
+    padding: 14px 28px;
+    border: 1px solid var(--accent);
+    cursor: pointer;
+    font-family: 'Space Mono', monospace;
+    font-size: 0.8rem;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    transition: all 0.2s;
+    clip-path: polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 10px 100%, 0 calc(100% - 10px));
+    text-decoration: none; display: inline-block;
+  }
+  .btn-outline:hover { background: rgba(78,255,124,0.08); }
+
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(20px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  /* ── SECTION COMMON ── */
+  section { padding: 5rem 4rem; }
+  .section-label {
+    font-size: 0.7rem;
+    letter-spacing: 4px;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: 0.8rem;
+  }
+  .section-title {
+    font-family: 'Fraunces', serif;
+    font-size: clamp(2rem, 4vw, 3.5rem);
+    font-weight: 700;
+    color: var(--white);
+    letter-spacing: -2px;
+    line-height: 1.1;
+    margin-bottom: 1.5rem;
+  }
+  .divider {
+    border: none;
+    border-top: 1px solid var(--border);
+    margin: 0 4rem;
+  }
+
+  /* ── ABOUT ── */
+  #about { background: var(--surface); }
+  .about-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 4rem;
+    margin-top: 3rem;
+  }
+  .about-text p {
+    color: var(--muted);
+    line-height: 1.9;
+    font-size: 0.82rem;
+    margin-bottom: 1rem;
+  }
+  .about-text strong { color: var(--accent); }
+  .about-stats {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.5rem;
+  }
+  .stat-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    padding: 1.5rem;
+    clip-path: polygon(0 0, calc(100% - 12px) 0, 100% 12px, 100% 100%, 0 100%);
+    transition: border-color 0.3s;
+  }
+  .stat-card:hover { border-color: var(--accent); }
+  .stat-num {
+    font-family: 'Fraunces', serif;
+    font-size: 2.5rem;
+    color: var(--accent);
+    font-weight: 700;
+    line-height: 1;
+  }
+  .stat-label { color: var(--muted); font-size: 0.7rem; letter-spacing: 1px; margin-top: 0.4rem; }
+
+  /* ── FEATURES ── */
+  #features { background: var(--bg); }
+  .features-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1.5rem;
+    margin-top: 3rem;
+  }
+  .feature-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    padding: 2rem;
+    transition: all 0.3s;
+    position: relative;
+    overflow: hidden;
+  }
+  .feature-card::after {
+    content: '';
+    position: absolute; inset: 0;
+    background: linear-gradient(135deg, rgba(78,255,124,0.05) 0%, transparent 60%);
+    opacity: 0;
+    transition: opacity 0.3s;
+  }
+  .feature-card:hover { border-color: var(--accent); transform: translateY(-4px); }
+  .feature-card:hover::after { opacity: 1; }
+  .feature-icon {
+    font-size: 2rem;
+    margin-bottom: 1rem;
+    display: block;
+  }
+  .feature-card h3 {
+    font-family: 'Fraunces', serif;
+    font-size: 1.2rem;
+    color: var(--white);
+    margin-bottom: 0.7rem;
+  }
+  .feature-card p { color: var(--muted); font-size: 0.78rem; line-height: 1.8; }
+
+  /* ── INTERACTIVE TOOLS ── */
+  #tools { background: var(--surface); }
+  .tools-wrapper {
+    margin-top: 3rem;
+    display: flex; flex-direction: column; gap: 2rem;
+  }
+  .tool-tabs {
+    display: flex; gap: 0.5rem; flex-wrap: wrap;
+  }
+  .tab-btn {
+    background: var(--card);
+    border: 1px solid var(--border);
+    color: var(--muted);
+    padding: 10px 20px;
+    cursor: pointer;
+    font-family: 'Space Mono', monospace;
+    font-size: 0.75rem;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    transition: all 0.2s;
+  }
+  .tab-btn.active {
+    background: rgba(78,255,124,0.12);
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+  .tab-btn:hover:not(.active) { border-color: var(--muted); color: var(--text); }
+  .tool-panel { display: none; }
+  .tool-panel.active { display: block; animation: fadeUp 0.3s ease; }
+
+  /* Molecule Visualizer */
+  .mol-visualizer {
+    background: var(--card);
+    border: 1px solid var(--border);
+    padding: 2rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+  }
+  .mol-input-area label {
+    display: block;
+    font-size: 0.7rem;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: 0.8rem;
+  }
+  .mol-input-area input, .mol-input-area select {
+    width: 100%;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 12px 16px;
+    font-family: 'Space Mono', monospace;
+    font-size: 0.82rem;
+    margin-bottom: 1rem;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  .mol-input-area input:focus, .mol-input-area select:focus { border-color: var(--accent); }
+  .mol-display {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    min-height: 260px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    overflow: hidden;
+  }
+  .mol-canvas-container { width: 100%; height: 100%; }
+  canvas#molCanvas { width: 100%; height: 100%; }
+  
+  /* 3D Viewer */
+  #mol3dViewer {
+    width: 100%;
+    height: 280px;
+    background: linear-gradient(135deg, #060d07 0%, #0a0e0b 100%);
+    border-radius: 2px;
+    position: relative;
+    overflow: hidden;
+    border: 1px solid var(--border);
+  }
+  .mol3d-info {
+    position: absolute;
+    bottom: 10px;
+    left: 10px;
+    font-size: 0.7rem;
+    color: var(--muted);
+    z-index: 10;
+    background: rgba(0,0,0,0.6);
+    padding: 8px 12px;
+    border-radius: 2px;
+    border: 1px solid var(--border);
+  }
+
+  /* Property Calculator */
+  .prop-grid { display: grid; grid-template-columns: 1fr 2fr; gap: 2rem; }
+  .prop-input { background: var(--card); border: 1px solid var(--border); padding: 2rem; }
+  .prop-results { background: var(--card); border: 1px solid var(--border); padding: 2rem; }
+  .prop-results h4 { color: var(--accent); font-size: 0.7rem; letter-spacing: 2px; text-transform: uppercase; margin-bottom: 1.5rem; }
+  .prop-table { width: 100%; border-collapse: collapse; }
+  .prop-table tr { border-bottom: 1px solid var(--border); }
+  .prop-table td { padding: 10px 8px; font-size: 0.78rem; }
+  .prop-table td:first-child { color: var(--muted); }
+  .prop-table td:last-child { color: var(--accent2); font-weight: 700; text-align: right; }
+  .prop-placeholder { color: var(--muted); font-size: 0.8rem; text-align: center; padding: 3rem; }
+
+  /* SMILES Builder */
+  .smiles-builder { background: var(--card); border: 1px solid var(--border); padding: 2rem; }
+  .smiles-builder h4 { color: var(--accent); font-size: 0.7rem; letter-spacing: 2px; text-transform: uppercase; margin-bottom: 1.5rem; }
+  .fragment-grid { display: flex; flex-wrap: wrap; gap: 0.6rem; margin-bottom: 1.5rem; }
+  .frag-btn {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 8px 14px;
+    font-family: 'Space Mono', monospace;
+    font-size: 0.75rem;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .frag-btn:hover { border-color: var(--accent); color: var(--accent); background: rgba(78,255,124,0.06); }
+  .smiles-output {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    padding: 1rem 1.5rem;
+    font-size: 1rem;
+    color: var(--accent2);
+    min-height: 50px;
+    word-break: break-all;
+    letter-spacing: 1px;
+    font-family: 'Space Mono', monospace;
+    margin-bottom: 1rem;
+  }
+  .smiles-actions { display: flex; gap: 0.8rem; flex-wrap: wrap; }
+
+  /* Quiz */
+  .quiz-wrapper { background: var(--card); border: 1px solid var(--border); padding: 2rem; max-width: 700px; }
+  .quiz-q {
+    font-family: 'Fraunces', serif;
+    font-size: 1.1rem;
+    color: var(--white);
+    margin-bottom: 1.5rem;
+    line-height: 1.5;
+  }
+  .quiz-options { display: flex; flex-direction: column; gap: 0.7rem; margin-bottom: 1.5rem; }
+  .quiz-opt {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 12px 16px;
+    cursor: pointer;
+    font-family: 'Space Mono', monospace;
+    font-size: 0.78rem;
+    text-align: left;
+    transition: all 0.2s;
+  }
+  .quiz-opt:hover { border-color: var(--accent3); color: var(--accent3); }
+  .quiz-opt.correct { border-color: var(--accent); background: rgba(78,255,124,0.1); color: var(--accent); }
+  .quiz-opt.wrong { border-color: #ff4e4e; background: rgba(255,78,78,0.08); color: #ff4e4e; }
+  .quiz-feedback { font-size: 0.8rem; color: var(--muted); line-height: 1.7; min-height: 60px; margin-bottom: 1rem; }
+  .quiz-score {
+    display: inline-block;
+    background: rgba(78,255,124,0.1);
+    border: 1px solid var(--border);
+    padding: 6px 14px;
+    font-size: 0.75rem;
+    color: var(--muted);
+    margin-bottom: 1.5rem;
+  }
+  .progress-bar {
+    height: 3px;
+    background: var(--border);
+    margin-bottom: 1.5rem;
+    position: relative;
+    overflow: hidden;
+  }
+  .progress-fill {
+    height: 100%;
+    background: var(--accent);
+    transition: width 0.4s ease;
+  }
+
+  /* ── SMILES LEGEND ── */
+  #smiles { background: var(--bg); }
+  .smiles-legend-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 1rem;
+    margin-top: 3rem;
+  }
+  .legend-item {
+    background: var(--card);
+    border: 1px solid var(--border);
+    padding: 1.2rem;
+    transition: border-color 0.2s;
+  }
+  .legend-item:hover { border-color: var(--accent); }
+  .legend-sym {
+    font-family: 'Fraunces', serif;
+    font-size: 1.5rem;
+    color: var(--accent2);
+    font-weight: 700;
+  }
+  .legend-name { color: var(--white); font-size: 0.8rem; margin: 0.3rem 0; }
+  .legend-desc { color: var(--muted); font-size: 0.72rem; line-height: 1.6; }
+
+  /* ── APPLICATIONS ── */
+  #applications { background: var(--surface); }
+  .app-cards {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1.5rem;
+    margin-top: 3rem;
+  }
+  .app-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    padding: 2rem;
+    display: flex; gap: 1.5rem;
+    transition: all 0.3s;
+  }
+  .app-card:hover { border-color: var(--accent3); }
+  .app-num {
+    font-family: 'Fraunces', serif;
+    font-size: 3rem;
+    color: rgba(78,255,124,0.15);
+    font-weight: 700;
+    line-height: 1;
+    flex-shrink: 0;
+    width: 60px;
+  }
+  .app-card h3 { font-family: 'Fraunces', serif; color: var(--white); font-size: 1.1rem; margin-bottom: 0.5rem; }
+  .app-card p { color: var(--muted); font-size: 0.78rem; line-height: 1.8; }
+
+  /* ── CODE SNIPPET ── */
+  #code { background: var(--bg); }
+  .code-block {
+    background: #060d07;
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--accent);
+    padding: 2rem;
+    margin-top: 2rem;
+    overflow-x: auto;
+    font-size: 0.82rem;
+    line-height: 1.9;
+    white-space: pre;
+    color: var(--muted);
+    font-family: 'Space Mono', monospace;
+  }
+  .code-block .kw { color: #c792ea; }
+  .code-block .fn { color: var(--accent3); }
+  .code-block .str { color: #c3e88d; }
+  .code-block .cmt { color: #546e7a; }
+  .code-block .cls { color: var(--accent2); }
+  .code-block .num { color: #f78c6c; }
+  .code-tabs { display: flex; gap: 0; margin-top: 3rem; }
+  .code-tab {
+    background: var(--card); border: 1px solid var(--border);
+    color: var(--muted); padding: 8px 20px;
+    cursor: pointer; font-family: 'Space Mono', monospace;
+    font-size: 0.72rem; letter-spacing: 1px; text-transform: uppercase;
+    transition: all 0.2s;
+  }
+  .code-tab.active { background: rgba(78,255,124,0.1); border-color: var(--accent); color: var(--accent); }
+
+  /* ── FOOTER ── */
+  footer {
+    background: var(--surface);
+    border-top: 1px solid var(--border);
+    padding: 3rem 4rem;
+    display: flex; align-items: center; justify-content: space-between;
+    flex-wrap: wrap; gap: 1rem;
+  }
+  .footer-logo { font-family: 'Fraunces', serif; font-size: 1.2rem; color: var(--accent); }
+  .footer-info { color: var(--muted); font-size: 0.72rem; line-height: 1.8; }
+  .footer-info strong { color: var(--text); }
+
+  /* ── SCROLL ANIMATIONS ── */
+  .reveal {
+    opacity: 0;
+    transform: translateY(30px);
+    transition: opacity 0.6s ease, transform 0.6s ease;
+  }
+  .reveal.visible { opacity: 1; transform: translateY(0); }
+
+  /* ── RESPONSIVE ── */
+  @media (max-width: 900px) {
+    section { padding: 3rem 1.5rem; }
+    .hero { padding: 2rem 1.5rem; }
+    .features-grid { grid-template-columns: 1fr 1fr; }
+    .about-grid, .prop-grid, .smiles-legend-grid, .app-cards { grid-template-columns: 1fr; }
+    .mol-ring { display: none; }
+    footer { flex-direction: column; padding: 2rem 1.5rem; }
+    .divider { margin: 0 1.5rem; }
+    
+    /* Mobile optimizations */
+    nav { padding: 0 1rem; }
+    .nav-links { gap: 1rem; }
+    .nav-links a { font-size: 0.65rem; }
+  }
+  
+  @media (max-width: 768px) {
+    /* Tablet optimizations */
+    section { padding: 2rem 1rem; }
+    .hero { padding: 1.5rem 1rem; }
+    .section-title { font-size: clamp(1.5rem, 4vw, 2.5rem); }
+    
+    /* Canvas sizing for tablet */
+    #molCanvas { width: 100% !important; height: 300px !important; }
+    #mol3dViewer { height: 300px !important; }
+    
+    .mol-visualizer { padding: 1.5rem; }
+    .tool-tabs { gap: 0.3rem; flex-wrap: wrap; }
+    .tab-btn { padding: 8px 14px; font-size: 0.7rem; }
+    
+    .btn-primary, .btn-outline { padding: 10px 18px; font-size: 0.75rem; }
+  }
+  
+  @media (max-width: 600px) {
+    .features-grid { grid-template-columns: 1fr; }
+    .smiles-legend-grid { grid-template-columns: 1fr; }
+    
+    /* Mobile optimizations */
+    section { padding: 1.5rem 0.8rem; }
+    .hero { padding: 1rem 0.8rem; }
+    .divider { margin: 0 0.8rem; }
+    
+    /* Smaller fonts for mobile */
+    .section-label { font-size: 0.6rem; letter-spacing: 2px; }
+    .section-title { font-size: clamp(1.3rem, 5vw, 2rem); }
+    
+    /* Canvas sizing */
+    #molCanvas { width: 100% !important; height: 250px !important; }
+    #mol3dViewer { height: 250px !important; }
+    
+    /* Mobile-friendly controls */
+    .mol-visualizer { padding: 1rem; gap: 1rem; }
+    .mol-input-area label { font-size: 0.65rem; }
+    .mol-input-area input, .mol-input-area select { 
+      font-size: 0.85rem; 
+      padding: 10px 12px;
+      min-height: 44px; /* Minimum touch target */
+    }
+    
+    .tool-tabs { gap: 0.2rem; }
+    .tab-btn { 
+      padding: 10px 12px; 
+      font-size: 0.65rem;
+      min-height: 44px;
+      flex: 1;
+    }
+    
+    .btn-primary, .btn-outline, #reset2DBtn { 
+      padding: 12px 16px; 
+      font-size: 0.7rem;
+      min-height: 44px;
+      width: 100%;
+    }
+    
+    .nav-links { gap: 0.5rem; }
+    .nav-links a { font-size: 0.6rem; letter-spacing: 1px; }
+    
+    /* Better spacing for forms */
+    .prop-input, .prop-results { padding: 1rem; }
+    .smiles-builder { padding: 1.5rem 1rem; }
+    
+    /* Quiz adjustments */
+    .quiz-wrapper { max-width: 100%; padding: 1rem; }
+    .quiz-opt { padding: 12px 14px; font-size: 0.75rem; }
+    
+    /* Feature cards smaller */
+    .feature-card { padding: 1.5rem 1rem; }
+    .feature-icon { font-size: 1.5rem; }
+    
+    /* Footer adjustments */
+    footer { padding: 1.5rem 0.8rem; font-size: 0.65rem; }
+  }
+  
+  @media (max-width: 480px) {
+    /* Small phone optimizations */
+    section { padding: 1rem 0.6rem; }
+    .hero { padding: 0.8rem 0.6rem; }
+    
+    #molCanvas { height: 220px !important; }
+    #mol3dViewer { height: 220px !important; }
+    
+    .section-title { font-size: clamp(1.1rem, 6vw, 1.8rem); }
+    .section-label { font-size: 0.55rem; letter-spacing: 1px; }
+    
+    .tab-btn { padding: 8px 10px; font-size: 0.6rem; }
+    .tool-tabs { gap: 0.1rem; }
+    
+    /* Better sizing for touch */
+    input, select, button { 
+      min-height: 48px; 
+      font-size: 16px; /* Prevents zoom on iOS */
+    }
+    
+    .btn-primary, .btn-outline { width: 100%; }
+    
+    /* Hide non-essential info on very small screens */
+    .legend-item { padding: 0.8rem; }
+    .stat-card { padding: 1rem; }
+  }
+  
+  /* Landscape mode optimizations */
+  @media (max-height: 600px) and (orientation: landscape) {
+    section { padding: 1rem; }
+    .hero { padding: 0.5rem; }
+    #molCanvas { height: 180px !important; }
+    #mol3dViewer { height: 180px !important; }
+  }
+  
+  /* Touch-friendly adjustments */
+  @media (hover: none) and (pointer: coarse) {
+    /* These styles apply to touch devices */
+    .tab-btn, .btn-primary, .btn-outline, input, select { 
+      min-height: 48px; 
+      padding: 12px 16px;
+    }
+    
+    canvas { 
+      touch-action: none;
+    }
+  }
+</style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav>
+  <div class="logo">RD<span>kit</span></div>
+  <div class="nav-links">
+    <a href="#about">About</a>
+    <a href="#features">Features</a>
+    <a href="#tools">Tools</a>
+    <a href="#applications">Uses</a>
+    <a href="#code">Code</a>
+  </div>
+</nav>
+
+<!-- HERO -->
+<section class="hero" id="home">
+  <div class="hero-bg"></div>
+  <!-- SVG molecule decoration -->
+  <svg class="mol-ring" viewBox="0 0 400 400" fill="none" xmlns="http://www.w3.org/2000/svg" opacity="0.25">
+    <circle cx="200" cy="200" r="180" stroke="#4eff7c" stroke-width="0.5" stroke-dasharray="4 6"/>
+    <circle cx="200" cy="20" r="10" fill="#4eff7c" opacity="0.6"/>
+    <circle cx="356" cy="110" r="8" fill="#b8ff6a" opacity="0.5"/>
+    <circle cx="356" cy="290" r="12" fill="#00e5b0" opacity="0.5"/>
+    <circle cx="200" cy="380" r="8" fill="#4eff7c" opacity="0.4"/>
+    <circle cx="44" cy="290" r="10" fill="#b8ff6a" opacity="0.5"/>
+    <circle cx="44" cy="110" r="8" fill="#4eff7c" opacity="0.5"/>
+    <line x1="200" y1="20" x2="356" y2="110" stroke="#4eff7c" stroke-width="0.6"/>
+    <line x1="356" y1="110" x2="356" y2="290" stroke="#b8ff6a" stroke-width="0.6"/>
+    <line x1="356" y1="290" x2="200" y2="380" stroke="#00e5b0" stroke-width="0.6"/>
+    <line x1="200" y1="380" x2="44" y2="290" stroke="#4eff7c" stroke-width="0.6"/>
+    <line x1="44" y1="290" x2="44" y2="110" stroke="#b8ff6a" stroke-width="0.6"/>
+    <line x1="44" y1="110" x2="200" y2="20" stroke="#4eff7c" stroke-width="0.6"/>
+    <circle cx="200" cy="200" r="40" stroke="#4eff7c" stroke-width="0.8" fill="rgba(78,255,124,0.03)"/>
+    <circle cx="200" cy="200" r="8" fill="#4eff7c" opacity="0.8"/>
+    <line x1="200" y1="160" x2="200" y2="20" stroke="#4eff7c" stroke-width="0.4" stroke-dasharray="2 4"/>
+    <line x1="240" y1="200" x2="356" y2="200" stroke="#4eff7c" stroke-width="0.4" stroke-dasharray="2 4"/>
+    <text x="185" y="205" fill="#4eff7c" font-size="8" font-family="monospace" opacity="0.7">C</text>
+    <text x="195" y="55" fill="#b8ff6a" font-size="8" font-family="monospace" opacity="0.7">N</text>
+    <text x="345" y="205" fill="#00e5b0" font-size="8" font-family="monospace" opacity="0.7">O</text>
+  </svg>
+
+  <div class="badge">Engineering Chemistry Project</div>
+  <h1>RDKit<em>Cheminformatics</em></h1>
+  <p>The open-source toolkit for computational chemistry. RDKit enables molecule manipulation, property calculation, substructure searching, and chemical drawing — powering modern drug discovery and materials science.</p>
+  <div class="hero-btns">
+    <a href="#tools" class="btn-primary">Try Interactive Tools</a>
+    <a href="#about" class="btn-outline">Learn More</a>
+  </div>
+</section>
+<hr class="divider">
+
+<!-- ABOUT -->
+<section id="about">
+  <div class="section-label">01 / Overview</div>
+  <h2 class="section-title">What is<br>RDKit?</h2>
+  <div class="about-grid reveal">
+    <div class="about-text">
+      <p>RDKit (Reaction Design Toolkit) is a collection of <strong>cheminformatics and machine-learning tools</strong> written in C++ and Python. It was developed by Greg Landrum and is now widely used in the pharmaceutical, biotech, and academic communities.</p>
+      <p>At its core, RDKit allows chemists and computer scientists to work with molecular structures programmatically. You can read and write standard chemical file formats like <strong>SMILES, SDF, and Mol2</strong>, perform substructure searches, calculate molecular fingerprints for similarity analysis, and generate 2D/3D molecular depictions.</p>
+      <p>RDKit is tightly integrated with <strong>Python's scientific ecosystem</strong> — NumPy, Pandas, scikit-learn — making it a powerful foundation for machine learning in chemistry and AI-driven drug discovery.</p>
+    </div>
+    <div class="about-stats">
+      <div class="stat-card">
+        <div class="stat-num">200+</div>
+        <div class="stat-label">Molecular Descriptors</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-num">2000+</div>
+        <div class="stat-label">Citations / Year</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-num">C++/Py</div>
+        <div class="stat-label">Core Languages</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-num">Free</div>
+        <div class="stat-label">Open Source (BSD)</div>
+      </div>
+    </div>
+  </div>
+</section>
+<hr class="divider">
+
+<!-- FEATURES -->
+<section id="features">
+  <div class="section-label">02 / Capabilities</div>
+  <h2 class="section-title">Core Features</h2>
+  <div class="features-grid">
+    <div class="feature-card reveal">
+      <span class="feature-icon">🔬</span>
+      <h3>Molecule I/O</h3>
+      <p>Read and write SMILES, SMARTS, SDF, Mol2, PDB, and InChI formats. Interconvert between all major representations used in cheminformatics workflows.</p>
+    </div>
+    <div class="feature-card reveal">
+      <span class="feature-icon">📐</span>
+      <h3>2D/3D Depiction</h3>
+      <p>Generate publication-quality 2D drawings with the MolDraw2D engine. Compute 3D coordinates with ETKDG conformer generation and UFF/MMFF force fields.</p>
+    </div>
+    <div class="feature-card reveal">
+      <span class="feature-icon">🧮</span>
+      <h3>Property Calculation</h3>
+      <p>Calculate molecular weight, logP, TPSA, hydrogen bond donors/acceptors, rotatable bonds, ring count, and 200+ RDKit descriptors instantly.</p>
+    </div>
+    <div class="feature-card reveal">
+      <span class="feature-icon">🔍</span>
+      <h3>Substructure Search</h3>
+      <p>SMARTS-based substructure matching. Atom mapping, ring detection, aromatic system perception, and MCS (maximum common substructure) algorithms.</p>
+    </div>
+    <div class="feature-card reveal">
+      <span class="feature-icon">🧬</span>
+      <h3>Fingerprints & Similarity</h3>
+      <p>Morgan (ECFP), Topological Torsion, MACCS Keys, RDKit, and Avalon fingerprints. Tanimoto, Dice, and cosine similarity metrics for virtual screening.</p>
+    </div>
+    <div class="feature-card reveal">
+      <span class="feature-icon">⚗️</span>
+      <h3>Chemical Reactions</h3>
+      <p>Reaction SMARTS for applying synthetic transformations. Retrosynthetic analysis tools, reaction enumeration, and combinatorial library generation.</p>
+    </div>
+  </div>
+</section>
+<hr class="divider">
+
+<!-- INTERACTIVE TOOLS -->
+<section id="tools">
+  <div class="section-label">03 / Interactive</div>
+  <h2 class="section-title">Hands-On Tools</h2>
+  <div class="tools-wrapper">
+    <div class="tool-tabs">
+      <button class="tab-btn active" id="tab-btn-visualizer" data-tab="visualizer">Molecule Viewer</button>
+      <button class="tab-btn" id="tab-btn-properties" data-tab="properties">Property Calculator</button>
+      <button class="tab-btn" id="tab-btn-smiles" data-tab="smiles">SMILES Builder</button>
+      <button class="tab-btn" id="tab-btn-quiz" data-tab="quiz">Knowledge Quiz</button>
+    </div>
+
+    <!-- Visualizer Tab -->
+    <div class="tool-panel active" id="tab-visualizer">
+      <div class="mol-visualizer">
+        <div class="mol-input-area">
+          <label>Select a Molecule</label>
+          <select id="molSelect">
+            <option value="water">Water (H₂O)</option>
+            <option value="benzene">Benzene (C₆H₆)</option>
+            <option value="ethanol">Ethanol (C₂H₅OH)</option>
+            <option value="aspirin">Aspirin</option>
+            <option value="glucose">Glucose</option>
+            <option value="caffeine">Caffeine</option>
+            <option value="methane">Methane (CH₄)</option>
+            <option value="ammonia">Ammonia (NH₃)</option>
+          </select>
+          <label>SMILES String</label>
+          <input type="text" id="smilesDisplay" readonly style="color: var(--accent2)">
+          <label style="margin-top:1rem;">Molecular Formula</label>
+          <input type="text" id="formulaDisplay" readonly style="color: var(--accent3)">
+          <label style="margin-top:1rem;">Molecular Weight</label>
+          <input type="text" id="mwDisplay" readonly style="color: var(--accent)">
+        </div>
+      </div>
+
+      <!-- 2D Diagram Section -->
+      <div style="background:var(--card);border:1px solid var(--border);padding:2rem;margin-top:2rem;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1.5rem;flex-wrap:wrap;gap:1rem;">
+          <div style="font-size:0.7rem;letter-spacing:2px;text-transform:uppercase;color:var(--accent);">📊 2D Flat Structure</div>
+          <button id="reset2DBtn" style="background:rgba(78,255,124,0.1);border:1px solid var(--accent);color:var(--accent);padding:6px 12px;font-size:0.65rem;cursor:pointer;font-family:'Space Mono',monospace;text-transform:uppercase;letter-spacing:1px;transition:all 0.2s;min-height:40px;">↺ Reset</button>
+        </div>
+        <div class="mol-display">
+          <canvas id="molCanvas" width="600" height="350"></canvas>
+        </div>
+        
+        <!-- Mobile Control Buttons -->
+        <div id="mobileControls" style="display:none;grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:0.5rem;margin-top:1rem;">
+          <button id="zoomInBtn" style="background:rgba(78,255,124,0.1);border:1px solid var(--accent);color:var(--accent);padding:10px;font-size:0.7rem;cursor:pointer;font-family:'Space Mono',monospace;text-transform:uppercase;min-height:44px;border-radius:2px;">🔍 Zoom In</button>
+          <button id="zoomOutBtn" style="background:rgba(78,255,124,0.1);border:1px solid var(--accent);color:var(--accent);padding:10px;font-size:0.7rem;cursor:pointer;font-family:'Space Mono',monospace;text-transform:uppercase;min-height:44px;border-radius:2px;">🔍 Zoom Out</button>
+          <button id="toggleGridBtn" style="background:rgba(78,255,124,0.1);border:1px solid var(--accent);color:var(--accent);padding:10px;font-size:0.7rem;cursor:pointer;font-family:'Space Mono',monospace;text-transform:uppercase;min-height:44px;border-radius:2px;">⊞ Grid</button>
+          <button id="toggleMeasureBtn" style="background:rgba(78,255,124,0.1);border:1px solid var(--accent);color:var(--accent);padding:10px;font-size:0.7rem;cursor:pointer;font-family:'Space Mono',monospace;text-transform:uppercase;min-height:44px;border-radius:2px;">📏 Measure</button>
+        </div>
+        
+        <div style="margin-top:1rem;padding:12px;background:rgba(78,255,124,0.08);border:1px solid var(--border);border-radius:2px;font-size:0.71rem;color:var(--muted);line-height:1.9;">
+          <strong style="color:var(--accent);">🎮 Desktop Controls:</strong><br>
+          <span class="desktop-only">🖱️ Drag to pan • 🔍 Scroll to zoom • Click atom to select • ⟲ Right-click pan</span><br>
+          <strong style="color:var(--accent);">📱 Mobile Controls:</strong><br>
+          <span class="mobile-only">👆 Tap & drag to pan • 🤲 Two-finger pinch to zoom • Tap atom to select</span><br>
+          <strong style="color:var(--accent);">⌨️ Keyboard:</strong> Space=Grid • M=Measure • C=Coords • Esc=Deselect
+        </div>
+      </div>
+
+      <!-- 3D Diagram Section -->
+      <div style="background:var(--card);border:1px solid var(--border);padding:2rem;margin-top:2rem;">
+        <div style="font-size:0.7rem;letter-spacing:2px;text-transform:uppercase;color:var(--accent);margin-bottom:1.5rem;">🎯 3D Interactive Model
+          <span style="float:right;font-size:0.65rem;color:var(--muted);">🖱️ Drag • 🔍 Scroll • ⟲ Right-click</span>
+        </div>
+        <div id="mol3dViewer" style="width:100%;height:350px;background:linear-gradient(135deg,#060d07 0%,#0a0e0b 100%);border:1px solid var(--border);border-radius:2px;"></div>
+        <div style="margin-top:1rem;padding:10px;background:rgba(78,255,124,0.08);border:1px solid var(--border);border-radius:2px;font-size:0.72rem;color:var(--muted);line-height:1.8;">
+          💡 <strong style="color:var(--accent);">3D Controls:</strong> Left-click drag to rotate • Scroll to zoom in/out • Right-click drag to pan around
+        </div>
+      </div>
+    </div>
+
+    <!-- Properties Tab -->
+    <div class="tool-panel" id="tab-properties">
+      <div class="prop-grid">
+        <div class="prop-input">
+          <label style="display:block;font-size:0.7rem;letter-spacing:2px;text-transform:uppercase;color:var(--accent);margin-bottom:0.8rem;">Choose Molecule</label>
+          <select id="propMolSelect" style="width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);padding:12px 16px;font-family:'Space Mono',monospace;font-size:0.82rem;outline:none;margin-bottom:1rem;">
+            <option value="">-- Select --</option>
+            <option value="aspirin">Aspirin</option>
+            <option value="caffeine">Caffeine</option>
+            <option value="glucose">Glucose</option>
+            <option value="ethanol">Ethanol</option>
+            <option value="benzene">Benzene</option>
+            <option value="water">Water</option>
+          </select>
+          <p style="color:var(--muted);font-size:0.75rem;line-height:1.7;">These properties simulate what RDKit's <code style="color:var(--accent3)">Descriptors</code> module computes from molecular structure.</p>
+        </div>
+        <div class="prop-results">
+          <h4>Calculated Properties</h4>
+          <div id="propOutput"><p class="prop-placeholder">Select a molecule to calculate properties →</p></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SMILES Builder Tab -->
+    <div class="tool-panel" id="tab-smiles">
+      <div class="smiles-builder">
+        <h4>Build a SMILES String</h4>
+        <p style="color:var(--muted);font-size:0.78rem;margin-bottom:1.5rem;">Click fragments to build a SMILES notation. SMILES (Simplified Molecular Input Line Entry System) is the standard text format for molecules.</p>
+        <div class="fragment-grid" id="fragGrid"></div>
+        <label style="display:block;font-size:0.7rem;letter-spacing:2px;text-transform:uppercase;color:var(--accent);margin-bottom:0.6rem;">Current SMILES</label>
+        <div class="smiles-output" id="smilesOut">_</div>
+        <div class="smiles-actions">
+          <button class="btn-outline" id="clearSmilesBtn" style="padding:10px 20px;font-size:0.75rem;">Clear</button>
+          <button class="btn-outline" id="undoSmilesBtn" style="padding:10px 20px;font-size:0.75rem;">⌫ Undo</button>
+          <button class="btn-primary" id="copySmilesBtn" style="padding:10px 20px;font-size:0.75rem;">Copy</button>
+        </div>
+        <div id="smilesInfo" style="margin-top:1rem;color:var(--muted);font-size:0.75rem;line-height:1.8;"></div>
+      </div>
+    </div>
+
+    <!-- Quiz Tab -->
+    <div class="tool-panel" id="tab-quiz">
+      <div class="quiz-wrapper">
+        <div class="quiz-score" id="quizScoreDisplay">Score: 0 / 0</div>
+        <div class="progress-bar"><div class="progress-fill" id="quizProgress" style="width:0%"></div></div>
+        <div class="quiz-q" id="quizQ">Loading question...</div>
+        <div class="quiz-options" id="quizOpts"></div>
+        <div class="quiz-feedback" id="quizFeedback"></div>
+        <button class="btn-primary" id="nextQBtn" onclick="nextQuestion()" style="display:none;padding:12px 24px;font-size:0.78rem;">Next Question →</button>
+      </div>
+    </div>
+  </div>
+</section>
+<hr class="divider">
+
+<!-- SMILES LEGEND -->
+<section id="smiles">
+  <div class="section-label">04 / Reference</div>
+  <h2 class="section-title">SMILES Notation<br>Quick Reference</h2>
+  <div class="smiles-legend-grid reveal">
+    <div class="legend-item"><div class="legend-sym">C</div><div class="legend-name">Carbon</div><div class="legend-desc">Aliphatic carbon atom. CC = ethane, CCC = propane.</div></div>
+    <div class="legend-item"><div class="legend-sym">c</div><div class="legend-name">Aromatic Carbon</div><div class="legend-desc">Lowercase = aromatic. c1ccccc1 = benzene ring.</div></div>
+    <div class="legend-item"><div class="legend-sym">N</div><div class="legend-name">Nitrogen</div><div class="legend-desc">Aliphatic nitrogen. CN = methylamine (trimethyl with 3 C's).</div></div>
+    <div class="legend-item"><div class="legend-sym">O</div><div class="legend-name">Oxygen</div><div class="legend-desc">CO = methanol, CCO = ethanol, C=O = carbonyl.</div></div>
+    <div class="legend-item"><div class="legend-sym">=</div><div class="legend-name">Double Bond</div><div class="legend-desc">C=C = ethylene. C=O = aldehyde/ketone/carboxyl.</div></div>
+    <div class="legend-item"><div class="legend-sym">#</div><div class="legend-name">Triple Bond</div><div class="legend-desc">C#N = nitrile. C#C = acetylene.</div></div>
+    <div class="legend-item"><div class="legend-sym">( )</div><div class="legend-name">Branches</div><div class="legend-desc">CC(C)C = isobutane. Parentheses denote side chains.</div></div>
+    <div class="legend-item"><div class="legend-sym">1..9</div><div class="legend-name">Ring Closure</div><div class="legend-desc">C1CCCCC1 = cyclohexane. Numbers pair ring open/close atoms.</div></div>
+  </div>
+</section>
+<hr class="divider">
+
+<!-- APPLICATIONS -->
+<section id="applications">
+  <div class="section-label">05 / Real-World Use</div>
+  <h2 class="section-title">Where RDKit<br>Is Used</h2>
+  <div class="app-cards reveal">
+    <div class="app-card">
+      <div class="app-num">01</div>
+      <div>
+        <h3>Drug Discovery</h3>
+        <p>Pharmaceutical companies use RDKit to screen millions of virtual compounds (virtual HTS), compute ADMET properties, filter by Lipinski's Rule of Five, and cluster compound libraries for lead optimization.</p>
+      </div>
+    </div>
+    <div class="app-card">
+      <div class="app-num">02</div>
+      <div>
+        <h3>Machine Learning in Chemistry</h3>
+        <p>RDKit generates molecular fingerprints and descriptors used as features for ML models. Combined with scikit-learn or deep learning frameworks, it powers QSAR/QSPR predictive modeling.</p>
+      </div>
+    </div>
+    <div class="app-card">
+      <div class="app-num">03</div>
+      <div>
+        <h3>Chemical Database Management</h3>
+        <p>The PostgreSQL cartridge allows SQL queries on chemical structures — searching databases of millions of compounds by similarity, substructure, or exact match at database speed.</p>
+      </div>
+    </div>
+    <div class="app-card">
+      <div class="app-num">04</div>
+      <div>
+        <h3>Materials Science & Green Chemistry</h3>
+        <p>Researchers use RDKit to design novel polymers, optimize reaction conditions, predict solubility, and identify sustainable synthetic pathways with minimal waste.</p>
+      </div>
+    </div>
+  </div>
+</section>
+<hr class="divider">
+
+<!-- CODE SNIPPETS -->
+<section id="code">
+  <div class="section-label">06 / Code Examples</div>
+  <h2 class="section-title">RDKit in Python</h2>
+  <div class="code-tabs">
+    <button class="code-tab active" id="codeTab0" style="cursor:pointer;">Basic Usage</button>
+    <button class="code-tab" id="codeTab1" style="cursor:pointer;">Properties</button>
+    <button class="code-tab" id="codeTab2" style="cursor:pointer;">Fingerprints</button>
+  </div>
+  <div id="codeBlock" class="code-block"></div>
+</section>
+
+<!-- FOOTER -->
+<footer>
+  <div>
+    <div class="footer-logo">RDKit</div>
+    <div class="footer-info" style="margin-top:0.5rem;">Open-source cheminformatics toolkit</div>
+  </div>
+  <div class="footer-info" style="text-align:right;">
+    <strong>Engineering Chemistry Project</strong><br>
+    B.Tech First Year — 2024–25<br>
+    Based on RDKit by Greg Landrum
+  </div>
+</footer>
+
+<script>
+// ─────────────── MOLECULE DATA ───────────────
+const molecules = {
+  water:   { smiles: 'O', formula: 'H₂O', mw: '18.02 g/mol', atoms: [{ x:170, y:140, el:'O', color:'#ff6b6b', r:18 }, { x:120, y:190, el:'H', color:'#aaa', r:10 }, { x:220, y:190, el:'H', color:'#aaa', r:10 }], bonds: [[0,1,1],[0,2,1]] },
+  benzene: { smiles: 'c1ccccc1', formula: 'C₆H₆', mw: '78.11 g/mol',
+    atoms: [
+      { x:170, y:80,  el:'C', color:'#4eff7c', r:14 },
+      { x:230, y:110, el:'C', color:'#4eff7c', r:14 },
+      { x:230, y:170, el:'C', color:'#4eff7c', r:14 },
+      { x:170, y:200, el:'C', color:'#4eff7c', r:14 },
+      { x:110, y:170, el:'C', color:'#4eff7c', r:14 },
+      { x:110, y:110, el:'C', color:'#4eff7c', r:14 },
+    ], bonds: [[0,1,2],[1,2,1],[2,3,2],[3,4,1],[4,5,2],[5,0,1]], ring: true },
+  ethanol: { smiles: 'CCO', formula: 'C₂H₆O', mw: '46.07 g/mol',
+    atoms: [{ x:80, y:140, el:'C', color:'#4eff7c', r:14 }, { x:170, y:140, el:'C', color:'#4eff7c', r:14 }, { x:255, y:140, el:'O', color:'#ff6b6b', r:16 }],
+    bonds: [[0,1,1],[1,2,1]] },
+  aspirin: { smiles: 'CC(=O)Oc1ccccc1C(=O)O', formula: 'C₉H₈O₄', mw: '180.16 g/mol',
+    atoms: [
+      { x:60,  y:140, el:'C', color:'#4eff7c', r:12 },
+      { x:110, y:140, el:'C', color:'#4eff7c', r:12 },
+      { x:110, y:90,  el:'O', color:'#ff6b6b', r:13 },
+      { x:155, y:165, el:'O', color:'#ff6b6b', r:13 },
+      { x:200, y:140, el:'C', color:'#4eff7c', r:12 },
+      { x:240, y:115, el:'C', color:'#4eff7c', r:12 },
+      { x:280, y:90,  el:'C', color:'#4eff7c', r:12 },
+      { x:280, y:165, el:'C', color:'#4eff7c', r:12 },
+      { x:240, y:190, el:'C', color:'#4eff7c', r:12 },
+      { x:200, y:165, el:'C', color:'#4eff7c', r:12 },
+      { x:320, y:140, el:'C', color:'#4eff7c', r:12 },
+      { x:355, y:115, el:'O', color:'#ff6b6b', r:13 },
+      { x:355, y:165, el:'O', color:'#ff6b6b', r:13 },
+    ], bonds: [[0,1,1],[1,2,2],[1,3,1],[3,4,1],[4,5,2],[5,6,1],[6,7,2],[7,8,1],[8,9,2],[9,4,1],[7,10,1],[10,11,2],[10,12,1]] },
+  glucose: { smiles: 'OC[C@H]1OC(O)[C@H](O)[C@@H](O)[C@@H]1O', formula: 'C₆H₁₂O₆', mw: '180.16 g/mol',
+    atoms: [
+      { x:170, y:60,  el:'O', color:'#ff6b6b', r:13 },
+      { x:230, y:100, el:'C', color:'#4eff7c', r:12 },
+      { x:260, y:155, el:'C', color:'#4eff7c', r:12 },
+      { x:230, y:210, el:'C', color:'#4eff7c', r:12 },
+      { x:170, y:210, el:'C', color:'#4eff7c', r:12 },
+      { x:110, y:155, el:'C', color:'#4eff7c', r:12 },
+      { x:110, y:100, el:'C', color:'#4eff7c', r:12 },
+      { x:80,  y:60,  el:'O', color:'#ff6b6b', r:13 },
+      { x:300, y:80,  el:'O', color:'#ff6b6b', r:13 },
+      { x:170, y:250, el:'O', color:'#ff6b6b', r:13 },
+      { x:80,  y:185, el:'O', color:'#ff6b6b', r:13 },
+    ], bonds: [[0,1,1],[1,2,1],[2,3,1],[3,4,1],[4,5,1],[5,6,1],[6,0,1],[6,7,1],[1,8,1],[4,9,1],[5,10,1]] },
+  caffeine: { smiles: 'Cn1cnc2c1c(=O)n(c(=O)n2C)C', formula: 'C₈H₁₀N₄O₂', mw: '194.19 g/mol',
+    atoms: [
+      { x:170, y:80,  el:'N', color:'#7b9fe5', r:13 },
+      { x:230, y:100, el:'C', color:'#4eff7c', r:12 },
+      { x:250, y:155, el:'N', color:'#7b9fe5', r:13 },
+      { x:210, y:200, el:'C', color:'#4eff7c', r:12 },
+      { x:155, y:195, el:'C', color:'#4eff7c', r:12 },
+      { x:125, y:145, el:'N', color:'#7b9fe5', r:13 },
+      { x:150, y:100, el:'C', color:'#4eff7c', r:12 },
+      { x:95,  y:160, el:'C', color:'#4eff7c', r:12 },
+      { x:65,  y:195, el:'O', color:'#ff6b6b', r:13 },
+      { x:215, y:240, el:'O', color:'#ff6b6b', r:13 },
+      { x:270, y:65,  el:'C', color:'#4eff7c', r:12 },
+    ], bonds: [[0,1,2],[1,2,1],[2,3,1],[3,4,1],[4,5,2],[5,6,1],[6,0,1],[5,7,1],[7,8,2],[3,9,2],[1,10,1]] },
+  methane: { smiles: 'C', formula: 'CH₄', mw: '16.04 g/mol',
+    atoms: [{ x:170, y:140, el:'C', color:'#4eff7c', r:20 }, { x:125, y:100, el:'H', color:'#aaa', r:10 }, { x:215, y:100, el:'H', color:'#aaa', r:10 }, { x:125, y:180, el:'H', color:'#aaa', r:10 }, { x:215, y:180, el:'H', color:'#aaa', r:10 }],
+    bonds: [[0,1,1],[0,2,1],[0,3,1],[0,4,1]] },
+  ammonia: { smiles: 'N', formula: 'NH₃', mw: '17.03 g/mol',
+    atoms: [{ x:170, y:140, el:'N', color:'#7b9fe5', r:18 }, { x:120, y:185, el:'H', color:'#aaa', r:10 }, { x:220, y:185, el:'H', color:'#aaa', r:10 }, { x:170, y:90, el:'H', color:'#aaa', r:10 }],
+    bonds: [[0,1,1],[0,2,1],[0,3,1]] },
+};
+
+// Enhanced 2D Canvas state
+let canvas2DState = {
+  scale: 1,
+  offsetX: 0,
+  offsetY: 0,
+  isDragging: false,
+  lastX: 0,
+  lastY: 0,
+  mouseX: 0,
+  mouseY: 0,
+  hoveredAtom: -1,
+  selectedAtom: -1,
+  showGrid: true,
+  showMeasurements: true,
+  showCoordinates: true,
+  animationTime: 0
+};
+
+// Helper function to convert hex color to rgba (handles both #abc and #aabbcc formats)
+function hexToRgba(hex, alpha) {
+  // Remove the # if present
+  hex = hex.replace('#', '');
+  
+  // Handle 3-character hex format (#abc -> #aabbcc)
+  if (hex.length === 3) {
+    hex = hex[0] + hex[0] + hex[1] + hex[1] + hex[2] + hex[2];
+  }
+  
+  // Parse RGB values
+  const r = parseInt(hex.slice(0, 2), 16);
+  const g = parseInt(hex.slice(2, 4), 16);
+  const b = parseInt(hex.slice(4, 6), 16);
+  
+  // Return RGBA
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}
+
+function drawMolecule(key) {
+  const canvas = document.getElementById('molCanvas');
+  if (!canvas) return;
+  
+  const ctx = canvas.getContext('2d');
+  const width = 600;
+  const height = 350;
+  canvas.width = width; 
+  canvas.height = height;
+  
+  // Update animation time
+  canvas2DState.animationTime = (canvas2DState.animationTime + 1) % 360;
+  
+  // Draw background with gradient
+  const bgGradient = ctx.createLinearGradient(0, 0, width, height);
+  bgGradient.addColorStop(0, '#060d07');
+  bgGradient.addColorStop(1, '#0a0e0b');
+  ctx.fillStyle = bgGradient;
+  ctx.fillRect(0, 0, width, height);
+  
+  // Draw grid
+  if (canvas2DState.showGrid) {
+    drawGrid(ctx, width, height);
+  }
+  
+  ctx.clearRect(0, 0, width, height);
+  ctx.fillStyle = bgGradient;
+  ctx.fillRect(0, 0, width, height);
+
+  const mol = molecules[key];
+  if (!mol) return;
+
+  // Use canvas state for zoom/pan
+  const baseScale = 1.2 * canvas2DState.scale;
+  const offsetX = width / 2 + canvas2DState.offsetX;
+  const offsetY = height / 2 + canvas2DState.offsetY;
+
+  // Convert molecule atoms to screen coordinates
+  const atomScreenCoords = mol.atoms.map((at, idx) => ({
+    x: at.x * baseScale + offsetX,
+    y: at.y * baseScale + offsetY,
+    idx
+  }));
+
+  // Draw grid
+  if (canvas2DState.showGrid) {
+    drawGrid(ctx, width, height);
+  }
+
+  // Draw bonds with enhanced visuals
+  mol.bonds.forEach(([a, b, order]) => {
+    const p1 = mol.atoms[a], p2 = mol.atoms[b];
+    const x1 = p1.x * baseScale + offsetX;
+    const y1 = p1.y * baseScale + offsetY;
+    const x2 = p2.x * baseScale + offsetX;
+    const y2 = p2.y * baseScale + offsetY;
+    
+    // Bond shadow
+    ctx.strokeStyle = 'rgba(0,0,0,0.3)';
+    ctx.lineWidth = 3.5;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+
+    if (order === 2) {
+      const dx = x2 - x1, dy = y2 - y1;
+      const len = Math.sqrt(dx*dx+dy*dy);
+      const ox = -dy/len*4, oy = dx/len*4;
+      ctx.beginPath(); ctx.moveTo(x1+ox,y1+oy); ctx.lineTo(x2+ox,y2+oy); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(x1-ox,y1-oy); ctx.lineTo(x2-ox,y2-oy); ctx.stroke();
+    } else {
+      ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke();
+    }
+    
+    // Main bond
+    const bondColor = (a === canvas2DState.selectedAtom || b === canvas2DState.selectedAtom) ? 
+                      '#4eff7c' : 'rgba(78,255,124,0.7)';
+    ctx.strokeStyle = bondColor;
+    ctx.lineWidth = 2.5;
+
+    if (order === 2) {
+      const dx = x2 - x1, dy = y2 - y1;
+      const len = Math.sqrt(dx*dx+dy*dy);
+      const ox = -dy/len*4, oy = dx/len*4;
+      ctx.beginPath(); ctx.moveTo(x1+ox,y1+oy); ctx.lineTo(x2+ox,y2+oy); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(x1-ox,y1-oy); ctx.lineTo(x2-ox,y2-oy); ctx.stroke();
+    } else if (order === 3) {
+      const dx = x2 - x1, dy = y2 - y1;
+      const len = Math.sqrt(dx*dx+dy*dy);
+      const ox = -dy/len*3, oy = dx/len*3;
+      ctx.beginPath(); ctx.moveTo(x1+ox,y1+oy); ctx.lineTo(x2+ox,y2+oy); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(x1,y1); ctx.lineTo(x2,y2); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(x1-ox,y1-oy); ctx.lineTo(x2-ox,y2-oy); ctx.stroke();
+    } else {
+      ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke();
+    }
+    
+    // Draw bond measurement if enabled
+    if (canvas2DState.showMeasurements) {
+      const dx = x2 - x1;
+      const dy = y2 - y1;
+      const bondLength = Math.sqrt(dx*dx + dy*dy) / baseScale;
+      const midX = (x1 + x2) / 2;
+      const midY = (y1 + y2) / 2;
+      
+      ctx.fillStyle = 'rgba(184,255,106,0.5)';
+      ctx.font = '10px Space Mono, monospace';
+      ctx.textAlign = 'center';
+      ctx.fillText(bondLength.toFixed(1) + 'Å', midX, midY - 10);
+    }
+  });
+
+  // Ring aromatic circle
+  if (mol.ring) {
+    const xs = mol.atoms.map(a=>a.x * baseScale + offsetX), ys = mol.atoms.map(a=>a.y * baseScale + offsetY);
+    const cx = xs.reduce((s,v)=>s+v,0)/xs.length, cy = ys.reduce((s,v)=>s+v,0)/ys.length;
+    
+    // Pulsing aromatic ring
+    const pulse = Math.sin(canvas2DState.animationTime * Math.PI / 180) * 3 + 27;
+    ctx.beginPath(); ctx.arc(cx, cy, pulse, 0, Math.PI*2);
+    ctx.strokeStyle = 'rgba(184,255,106,0.3)'; ctx.lineWidth = 1.5;
+    ctx.setLineDash([4,3]); ctx.stroke(); ctx.setLineDash([]);
+  }
+
+  // Draw atoms with enhanced effects
+  mol.atoms.forEach((at, idx) => {
+    const x = at.x * baseScale + offsetX;
+    const y = at.y * baseScale + offsetY;
+    
+    const isHovered = (idx === canvas2DState.hoveredAtom);
+    const isSelected = (idx === canvas2DState.selectedAtom);
+    
+    // Enhanced glow for hovered atoms
+    if (isHovered || isSelected) {
+      const glowSize = isSelected ? at.r * 3.5 : at.r * 3;
+      const grd = ctx.createRadialGradient(x,y,0,x,y,glowSize);
+      const glowColor = isSelected ? '#4eff7c' : at.color;
+      grd.addColorStop(0, hexToRgba(glowColor, 0.27));
+      grd.addColorStop(0.7, hexToRgba(glowColor, 0.13));
+      grd.addColorStop(1, 'transparent');
+      ctx.beginPath(); ctx.arc(x, y, glowSize, 0, Math.PI*2);
+      ctx.fillStyle = grd; ctx.fill();
+    }
+    
+    // Standard glow
+    const grd = ctx.createRadialGradient(x,y,0,x,y,at.r*2.5);
+    grd.addColorStop(0, hexToRgba(at.color, 0.2));
+    grd.addColorStop(1, 'transparent');
+    ctx.beginPath(); ctx.arc(x, y, at.r*2.5, 0, Math.PI*2);
+    ctx.fillStyle = grd; ctx.fill();
+    
+    // Shadow
+    ctx.beginPath(); ctx.arc(x+1, y+1, at.r, 0, Math.PI*2);
+    ctx.fillStyle = 'rgba(0,0,0,0.3)'; ctx.fill();
+    
+    // Atom circle
+    ctx.beginPath(); ctx.arc(x, y, at.r, 0, Math.PI*2);
+    ctx.fillStyle = hexToRgba(at.color, 0.13); ctx.fill();
+    const borderColor = isSelected ? '#4eff7c' : at.color;
+    ctx.strokeStyle = borderColor;
+    ctx.lineWidth = isHovered || isSelected ? 2.5 : 1.8; 
+    ctx.stroke();
+    
+    // Atom label with better rendering
+    if (at.el !== 'H' || isSelected) {
+      ctx.fillStyle = at.color;
+      ctx.font = `bold ${Math.max(12, at.r * 1.2)}px Space Mono, monospace`;
+      ctx.textAlign = 'center'; 
+      ctx.textBaseline = 'middle';
+      ctx.shadowColor = 'rgba(0,0,0,0.5)';
+      ctx.shadowBlur = 3;
+      ctx.shadowOffsetX = 1;
+      ctx.shadowOffsetY = 1;
+      ctx.fillText(at.el, x, y);
+      ctx.shadowColor = 'transparent';
+    }
+    
+    // Coordinate display on selection
+    if (isSelected && canvas2DState.showCoordinates) {
+      ctx.fillStyle = 'rgba(184,255,106,0.8)';
+      ctx.font = '9px Space Mono, monospace';
+      ctx.textAlign = 'center';
+      ctx.fillText(`(${at.x.toFixed(1)}, ${at.y.toFixed(1)})`, x, y + at.r + 15);
+    }
+  });
+  
+  // Draw center crosshair
+  ctx.strokeStyle = 'rgba(78,255,124,0.1)';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(offsetX - 20, offsetY);
+  ctx.lineTo(offsetX + 20, offsetY);
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(offsetX, offsetY - 20);
+  ctx.lineTo(offsetX, offsetY + 20);
+  ctx.stroke();
+}
+
+function drawGrid(ctx, width, height) {
+  const gridSize = 30;
+  ctx.strokeStyle = 'rgba(78,255,124,0.08)';
+  ctx.lineWidth = 0.5;
+  
+  for (let x = 0; x < width; x += gridSize) {
+    ctx.beginPath();
+    ctx.moveTo(x, 0);
+    ctx.lineTo(x, height);
+    ctx.stroke();
+  }
+  
+  for (let y = 0; y < height; y += gridSize) {
+    ctx.beginPath();
+    ctx.moveTo(0, y);
+    ctx.lineTo(width, y);
+    ctx.stroke();
+  }
+}
+
+function getAtomAtPosition(x, y, mol, baseScale, offsetX, offsetY) {
+  for (let i = 0; i < mol.atoms.length; i++) {
+    const at = mol.atoms[i];
+    const ax = at.x * baseScale + offsetX;
+    const ay = at.y * baseScale + offsetY;
+    const dist = Math.sqrt((x - ax) ** 2 + (y - ay) ** 2);
+    
+    if (dist <= at.r * 2) {
+      return i;
+    }
+  }
+  return -1;
+}
+
+function init2DCanvasControls() {
+  const canvas = document.getElementById('molCanvas');
+  if (!canvas) return;
+
+  // Mouse down
+  canvas.addEventListener('mousedown', (e) => {
+    canvas2DState.isDragging = true;
+    canvas2DState.lastX = e.clientX;
+    canvas2DState.lastY = e.clientY;
+    
+    // Check for atom click
+    if (e.button === 0) {
+      const rect = canvas.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
+      
+      const key = document.getElementById('molSelect').value;
+      const mol = molecules[key];
+      const baseScale = 1.2 * canvas2DState.scale;
+      const offsetX = canvas.width / 2 + canvas2DState.offsetX;
+      const offsetY = canvas.height / 2 + canvas2DState.offsetY;
+      
+      const atomIdx = getAtomAtPosition(x, y, mol, baseScale, offsetX, offsetY);
+      if (atomIdx >= 0) {
+        canvas2DState.selectedAtom = atomIdx;
+        e.preventDefault();
+      }
+    }
+    
+    if (e.button === 2) {
+      e.preventDefault();
+    }
+  });
+
+  // Mouse move with hover detection
+  canvas.addEventListener('mousemove', (e) => {
+    const rect = canvas.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    
+    canvas2DState.mouseX = x;
+    canvas2DState.mouseY = y;
+    
+    // Check for hovered atom
+    const key = document.getElementById('molSelect').value;
+    const mol = molecules[key];
+    if (mol) {
+      const baseScale = 1.2 * canvas2DState.scale;
+      const offsetX = canvas.width / 2 + canvas2DState.offsetX;
+      const offsetY = canvas.height / 2 + canvas2DState.offsetY;
+      
+      const atomIdx = getAtomAtPosition(x, y, mol, baseScale, offsetX, offsetY);
+      canvas2DState.hoveredAtom = atomIdx;
+      
+      // Change cursor
+      canvas.style.cursor = atomIdx >= 0 ? 'pointer' : (canvas2DState.isDragging ? 'grabbing' : 'grab');
+    }
+    
+    if (!canvas2DState.isDragging) return;
+
+    const deltaX = e.clientX - canvas2DState.lastX;
+    const deltaY = e.clientY - canvas2DState.lastY;
+
+    if (e.buttons === 2) {
+      // Right mouse button - pan
+      canvas2DState.offsetX += deltaX * 1.5;
+      canvas2DState.offsetY += deltaY * 1.5;
+    } else if (e.buttons === 1) {
+      // Left mouse button - only pan if not hovering atom
+      if (canvas2DState.hoveredAtom < 0) {
+        canvas2DState.offsetX += deltaX * 1.5;
+        canvas2DState.offsetY += deltaY * 1.5;
+      }
+    }
+
+    canvas2DState.lastX = e.clientX;
+    canvas2DState.lastY = e.clientY;
+
+    // Redraw with new offset
+    drawMolecule(key);
+  });
+
+  // Mouse up
+  canvas.addEventListener('mouseup', (e) => {
+    canvas2DState.isDragging = false;
+    const key = document.getElementById('molSelect').value;
+    drawMolecule(key);
+  });
+
+  // Mouse leave
+  canvas.addEventListener('mouseleave', (e) => {
+    canvas2DState.isDragging = false;
+    canvas2DState.hoveredAtom = -1;
+    canvas.style.cursor = 'default';
+  });
+
+  // Scroll for zoom
+  canvas.addEventListener('wheel', (e) => {
+    e.preventDefault();
+    const zoomSpeed = 0.1;
+    const zoomIn = e.deltaY < 0;
+    
+    if (zoomIn) {
+      canvas2DState.scale += zoomSpeed;
+    } else {
+      canvas2DState.scale -= zoomSpeed;
+    }
+
+    // Clamp zoom level
+    canvas2DState.scale = Math.max(0.3, Math.min(3, canvas2DState.scale));
+
+    // Redraw with new scale
+    const key = document.getElementById('molSelect').value;
+    drawMolecule(key);
+  });
+
+  // Context menu prevention
+  canvas.addEventListener('contextmenu', (e) => {
+    e.preventDefault();
+  });
+  
+  // Double click to center on atom
+  canvas.addEventListener('dblclick', (e) => {
+    const rect = canvas.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    
+    const key = document.getElementById('molSelect').value;
+    const mol = molecules[key];
+    const baseScale = 1.2 * canvas2DState.scale;
+    const offsetX = canvas.width / 2 + canvas2DState.offsetX;
+    const offsetY = canvas.height / 2 + canvas2DState.offsetY;
+    
+    const atomIdx = getAtomAtPosition(x, y, mol, baseScale, offsetX, offsetY);
+    if (atomIdx >= 0) {
+      // Center on this atom
+      const at = mol.atoms[atomIdx];
+      const atomScreenX = at.x * baseScale + offsetX;
+      const atomScreenY = at.y * baseScale + offsetY;
+      
+      canvas2DState.offsetX = (canvas.width / 2) - (at.x * baseScale);
+      canvas2DState.offsetY = (canvas.height / 2) - (at.y * baseScale);
+      
+      drawMolecule(key);
+    }
+  });
+  
+  // ───────── TOUCH SUPPORT FOR MOBILE ─────────
+  let touchStartDistance = 0;
+  let touchStartScale = 1;
+  
+  canvas.addEventListener('touchstart', (e) => {
+    if (e.touches.length === 1) {
+      // Single touch - pan/select
+      const touch = e.touches[0];
+      const rect = canvas.getBoundingClientRect();
+      const x = touch.clientX - rect.left;
+      const y = touch.clientY - rect.top;
+      
+      canvas2DState.lastX = touch.clientX;
+      canvas2DState.lastY = touch.clientY;
+      canvas2DState.isDragging = true;
+      
+      // Check for atom tap
+      const key = document.getElementById('molSelect').value;
+      const mol = molecules[key];
+      const baseScale = 1.2 * canvas2DState.scale;
+      const offsetX = canvas.width / 2 + canvas2DState.offsetX;
+      const offsetY = canvas.height / 2 + canvas2DState.offsetY;
+      
+      const atomIdx = getAtomAtPosition(x, y, mol, baseScale, offsetX, offsetY);
+      if (atomIdx >= 0) {
+        canvas2DState.selectedAtom = atomIdx;
+      }
+    } else if (e.touches.length === 2) {
+      // Two-finger touch - pinch zoom
+      e.preventDefault();
+      const touch1 = e.touches[0];
+      const touch2 = e.touches[1];
+      const dx = touch2.clientX - touch1.clientX;
+      const dy = touch2.clientY - touch1.clientY;
+      touchStartDistance = Math.sqrt(dx * dx + dy * dy);
+      touchStartScale = canvas2DState.scale;
+      canvas2DState.isDragging = false;
+    }
+  }, { passive: false });
+  
+  canvas.addEventListener('touchmove', (e) => {
+    if (e.touches.length === 1 && canvas2DState.isDragging) {
+      e.preventDefault();
+      const touch = e.touches[0];
+      const deltaX = touch.clientX - canvas2DState.lastX;
+      const deltaY = touch.clientY - canvas2DState.lastY;
+      
+      // Pan
+      canvas2DState.offsetX += deltaX * 1.5;
+      canvas2DState.offsetY += deltaY * 1.5;
+      
+      canvas2DState.lastX = touch.clientX;
+      canvas2DState.lastY = touch.clientY;
+      
+      const key = document.getElementById('molSelect').value;
+      drawMolecule(key);
+    } else if (e.touches.length === 2) {
+      e.preventDefault();
+      // Pinch zoom
+      const touch1 = e.touches[0];
+      const touch2 = e.touches[1];
+      const dx = touch2.clientX - touch1.clientX;
+      const dy = touch2.clientY - touch1.clientY;
+      const distance = Math.sqrt(dx * dx + dy * dy);
+      
+      const zoomFactor = distance / touchStartDistance;
+      canvas2DState.scale = touchStartScale * zoomFactor;
+      canvas2DState.scale = Math.max(0.3, Math.min(3, canvas2DState.scale));
+      
+      const key = document.getElementById('molSelect').value;
+      drawMolecule(key);
+    }
+  }, { passive: false });
+  
+  canvas.addEventListener('touchend', (e) => {
+    if (e.touches.length < 2) {
+      canvas2DState.isDragging = false;
+    }
+  });
+  
+  // ───────── 3D VIEWER TOUCH SUPPORT ─────────
+  const mol3dViewer = document.getElementById('mol3dViewer');
+  if (mol3dViewer) {
+    let touch3DStartDistance = 0;
+    let touch3DStartScale = 15;
+    
+    mol3dViewer.addEventListener('touchstart', (e) => {
+      if (e.touches.length === 1) {
+        const touch = e.touches[0];
+        canvas2DState.lastX = touch.clientX;
+        canvas2DState.lastY = touch.clientY;
+      } else if (e.touches.length === 2) {
+        const touch1 = e.touches[0];
+        const touch2 = e.touches[1];
+        const dx = touch2.clientX - touch1.clientX;
+        const dy = touch2.clientY - touch1.clientY;
+        touch3DStartDistance = Math.sqrt(dx * dx + dy * dy);
+        touch3DStartScale = camera ? camera.position.z : 15;
+      }
+    }, { passive: true });
+    
+    mol3dViewer.addEventListener('touchmove', (e) => {
+      if (e.touches.length === 1 && camera && molecule3D) {
+        e.preventDefault();
+        const touch = e.touches[0];
+        const deltaX = touch.clientX - canvas2DState.lastX;
+        const deltaY = touch.clientY - canvas2DState.lastY;
+        
+        molecule3D.rotation.y += deltaX * 0.01;
+        molecule3D.rotation.x += deltaY * 0.01;
+        
+        canvas2DState.lastX = touch.clientX;
+        canvas2DState.lastY = touch.clientY;
+      } else if (e.touches.length === 2 && camera) {
+        e.preventDefault();
+        const touch1 = e.touches[0];
+        const touch2 = e.touches[1];
+        const dx = touch2.clientX - touch1.clientX;
+        const dy = touch2.clientY - touch1.clientY;
+        const distance = Math.sqrt(dx * dx + dy * dy);
+        
+        const zoomFactor = distance / touch3DStartDistance;
+        camera.position.z = touch3DStartScale / zoomFactor;
+        camera.position.z = Math.max(5, Math.min(50, camera.position.z));
+      }
+    }, { passive: false });
+  }
+  
+  // Keyboard controls
+  document.addEventListener('keydown', (e) => {
+    if (e.key === ' ') {
+      // Space to toggle grid
+      canvas2DState.showGrid = !canvas2DState.showGrid;
+      const key = document.getElementById('molSelect').value;
+      drawMolecule(key);
+    } else if (e.key === 'm') {
+      // M to toggle measurements
+      canvas2DState.showMeasurements = !canvas2DState.showMeasurements;
+      const key = document.getElementById('molSelect').value;
+      drawMolecule(key);
+    } else if (e.key === 'c') {
+      // C to toggle coordinates
+      canvas2DState.showCoordinates = !canvas2DState.showCoordinates;
+      const key = document.getElementById('molSelect').value;
+      drawMolecule(key);
+    } else if (e.key === 'Escape') {
+      // Escape to deselect
+      canvas2DState.selectedAtom = -1;
+      const key = document.getElementById('molSelect').value;
+      drawMolecule(key);
+    }
+  });
+}
+
+
+// ─────────────── 3D MOLECULE VISUALIZATION ───────────────
+let scene, camera, renderer, molecule3D, controls;
+const atomColors = {
+  'C': 0x4eff7c, 'N': 0x7b9fe5, 'O': 0xff6b6b, 'S': 0xf9d56e,
+  'Cl': 0x90EE90, 'Br': 0xA0522D, 'F': 0xFFFF00, 'H': 0xCCCCCC
+};
+
+function init3DViewer() {
+  console.log('init3DViewer called');
+  
+  const container = document.getElementById('mol3dViewer');
+  if (!container) {
+    console.log('mol3dViewer container not found');
+    return;
+  }
+  if (renderer) {
+    console.log('3D viewer already initialized');
+    return; // Already initialized
+  }
+
+  console.log('Setting up 3D scene...');
+  const width = container.clientWidth;
+  const height = 350;
+
+  // Scene
+  scene = new THREE.Scene();
+  scene.background = new THREE.Color(0x060d07);
+  scene.fog = new THREE.Fog(0x060d07, 100, 500);
+
+  // Camera
+  camera = new THREE.PerspectiveCamera(75, width / height, 0.1, 1000);
+  camera.position.z = 15;
+
+  // Renderer
+  renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+  renderer.setSize(width, height);
+  renderer.setPixelRatio(window.devicePixelRatio);
+  container.appendChild(renderer.domElement);
+
+  // Lights
+  const ambientLight = new THREE.AmbientLight(0xffffff, 0.7);
+  scene.add(ambientLight);
+  const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+  directionalLight.position.set(10, 10, 10);
+  scene.add(directionalLight);
+
+  // Controls
+  controls = new MoleculeControls(camera, renderer.domElement);
+
+  // Handle window resize
+  window.addEventListener('resize', () => {
+    const newWidth = container.clientWidth;
+    const newHeight = 350;
+    camera.aspect = newWidth / newHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(newWidth, newHeight);
+  });
+
+  // Render loop
+  function animate() {
+    requestAnimationFrame(animate);
+    if (molecule3D) {
+      molecule3D.rotation.y += 0.003;
+    }
+    renderer.render(scene, camera);
+  }
+  
+  console.log('Starting render loop...');
+  animate();
+  console.log('3D viewer fully initialized');
+}
+
+class MoleculeControls {
+  constructor(camera, canvas) {
+    this.camera = camera;
+    this.canvas = canvas;
+    this.isDragging = false;
+    this.previousMousePosition = { x: 0, y: 0 };
+    this.rotation = { x: 0, y: 0 };
+
+    canvas.addEventListener('mousedown', (e) => this.onMouseDown(e));
+    canvas.addEventListener('mousemove', (e) => this.onMouseMove(e));
+    canvas.addEventListener('mouseup', (e) => this.onMouseUp(e));
+    canvas.addEventListener('wheel', (e) => this.onMouseWheel(e));
+    canvas.addEventListener('contextmenu', (e) => e.preventDefault());
+  }
+
+  onMouseDown(e) {
+    this.isDragging = true;
+    this.previousMousePosition = { x: e.clientX, y: e.clientY };
+    if (e.button === 2) {
+      e.preventDefault();
+    }
+  }
+
+  onMouseMove(e) {
+    if (!this.isDragging || !molecule3D) return;
+
+    const deltaX = e.clientX - this.previousMousePosition.x;
+    const deltaY = e.clientY - this.previousMousePosition.y;
+
+    if (e.button === 2) {
+      e.preventDefault();
+      // Pan
+      this.camera.position.x -= deltaX * 0.01;
+      this.camera.position.y += deltaY * 0.01;
+    } else {
+      // Rotate
+      molecule3D.rotation.y += deltaX * 0.01;
+      molecule3D.rotation.x += deltaY * 0.01;
+    }
+
+    this.previousMousePosition = { x: e.clientX, y: e.clientY };
+  }
+
+  onMouseUp(e) {
+    this.isDragging = false;
+  }
+
+  onMouseWheel(e) {
+    e.preventDefault();
+    const zoomSpeed = 0.5;
+    this.camera.position.z += (e.deltaY > 0 ? zoomSpeed : -zoomSpeed);
+    this.camera.position.z = Math.max(5, Math.min(50, this.camera.position.z));
+  }
+}
+
+function draw3DMolecule(key) {
+  console.log('draw3DMolecule called with key:', key);
+  
+  // Make sure 3D viewer is initialized
+  if (!scene || !renderer || !camera) {
+    console.log('3D viewer not ready. Scene:', !!scene, 'Renderer:', !!renderer, 'Camera:', !!camera);
+    if (!scene) {
+      console.log('Initializing 3D viewer...');
+      init3DViewer();
+    }
+    // Try again after a short delay
+    setTimeout(() => {
+      if (scene && renderer && camera) {
+        draw3DMolecule(key);
+      }
+    }, 100);
+    return;
+  }
+
+  console.log('Drawing 3D molecule:', key);
+
+  // Remove old molecule
+  if (molecule3D) {
+    scene.remove(molecule3D);
+    console.log('Old molecule removed');
+  }
+
+  const mol = molecules[key];
+  if (!mol) {
+    console.log('Molecule not found:', key);
+    return;
+  }
+
+  molecule3D = new THREE.Group();
+
+  // Generate 3D positions with proper molecular geometry
+  const atoms3D = mol.atoms.map((atom, idx) => {
+    let x, y, z;
+    
+    // Generate proper 3D coordinates based on molecule type and atom position
+    switch(key) {
+      case 'methane':
+        // Tetrahedral geometry for methane (CH4)
+        if (idx === 0) { // Central carbon
+          x = 0; y = 0; z = 0;
+        } else { // Hydrogen atoms in tetrahedral positions
+          const tetrahedralPositions = [
+            [1.0, 1.0, 1.0],
+            [-1.0, -1.0, 1.0],
+            [-1.0, 1.0, -1.0],
+            [1.0, -1.0, -1.0]
+          ];
+          const pos = tetrahedralPositions[idx - 1];
+          x = pos[0] * 0.6;
+          y = pos[1] * 0.6;
+          z = pos[2] * 0.6;
+        }
+        break;
+        
+      case 'ammonia':
+        // Trigonal pyramidal geometry for ammonia (NH3)
+        if (idx === 0) { // Central nitrogen
+          x = 0; y = 0; z = 0;
+        } else { // Hydrogen atoms in trigonal pyramidal positions
+          const pyramidalPositions = [
+            [0.9, 0.0, -0.6],
+            [-0.45, 0.78, -0.6],
+            [-0.45, -0.78, -0.6]
+          ];
+          const pos = pyramidalPositions[idx - 1];
+          x = pos[0] * 0.8;
+          y = pos[1] * 0.8;
+          z = pos[2] * 0.8;
+        }
+        break;
+        
+      default:
+        // Generic 3D position generation for other molecules
+        x = (atom.x - 170) / 30;
+        y = -(atom.y - 140) / 30;
+        z = Math.sin(idx * 0.5) * 3;
+    }
+    
+    return {
+      ...atom,
+      x, y, z
+    };
+  });
+
+  // Draw bonds
+  mol.bonds.forEach(([a, b, order]) => {
+    const p1 = atoms3D[a], p2 = atoms3D[b];
+    const bondGeometry = new THREE.BufferGeometry();
+    bondGeometry.setAttribute('position', new THREE.BufferAttribute(
+      new Float32Array([p1.x, p1.y, p1.z, p2.x, p2.y, p2.z]), 3
+    ));
+
+    for (let i = 0; i < order; i++) {
+      const offset = (i - (order - 1) / 2) * 0.15;
+      const offsetGeom = new THREE.BufferGeometry();
+      offsetGeom.setAttribute('position', new THREE.BufferAttribute(
+        new Float32Array([
+          p1.x + offset, p1.y, p1.z,
+          p2.x + offset, p2.y, p2.z
+        ]), 3
+      ));
+      const line = new THREE.Line(offsetGeom, new THREE.LineBasicMaterial({ color: 0x4eff7c, linewidth: 2 }));
+      molecule3D.add(line);
+    }
+  });
+
+  // Draw atoms
+  atoms3D.forEach((atom, idx) => {
+    const color = atomColors[atom.el] || 0xaaaaaa;
+    const radius = atom.el === 'H' ? 0.25 : 0.4;
+
+    const geometry = new THREE.SphereGeometry(radius, 32, 32);
+    const material = new THREE.MeshPhongMaterial({
+      color: color,
+      emissive: color,
+      emissiveIntensity: 0.3,
+      shininess: 100
+    });
+    const sphere = new THREE.Mesh(geometry, material);
+    sphere.position.set(atom.x, atom.y, atom.z);
+
+    // Add glow effect with another sphere
+    const glowGeometry = new THREE.SphereGeometry(radius * 1.3, 32, 32);
+    const glowMaterial = new THREE.MeshBasicMaterial({
+      color: color,
+      transparent: true,
+      opacity: 0.15
+    });
+    const glow = new THREE.Mesh(glowGeometry, glowMaterial);
+    glow.position.copy(sphere.position);
+
+    molecule3D.add(sphere);
+    molecule3D.add(glow);
+  });
+
+  // Center molecule
+  const box = new THREE.Box3().setFromObject(molecule3D);
+  const center = box.getCenter(new THREE.Vector3());
+  molecule3D.position.sub(center);
+
+  scene.add(molecule3D);
+  console.log('3D molecule added to scene:', key);
+}
+
+function loadMolecule() {
+  try {
+    const molSelect = document.getElementById('molSelect');
+    if (!molSelect) {
+      console.log('molSelect element not found');
+      return;
+    }
+    
+    const key = molSelect.value;
+    console.log('Loading molecule:', key);
+    
+    const mol = molecules[key];
+    
+    if (!mol) {
+      console.log('Molecule not found:', key);
+      return;
+    }
+
+    const smilesEl = document.getElementById('smilesDisplay');
+    const formulaEl = document.getElementById('formulaDisplay');
+    const mwEl = document.getElementById('mwDisplay');
+
+    if (smilesEl) smilesEl.value = mol.smiles;
+    if (formulaEl) formulaEl.value = mol.formula;
+    if (mwEl) mwEl.value = mol.mw;
+
+    // Reset canvas zoom and pan
+    canvas2DState.scale = 1;
+    canvas2DState.offsetX = 0;
+    canvas2DState.offsetY = 0;
+
+    console.log('Drawing 2D molecule...');
+    drawMolecule(key);
+    console.log('2D molecule drawn');
+    
+    // Draw 3D molecule
+    console.log('Drawing 3D molecule... Renderer ready:', !!renderer);
+    draw3DMolecule(key);
+  } catch(e) {
+    console.log('loadMolecule error:', e);
+  }
+}
+
+// ─────────────── PROPERTIES ───────────────
+const propData = {
+  aspirin:  { mw:'180.16', logP:'1.19', hbd:'1', hba:'4', tpsa:'63.6', rb:'3', rings:'1', mf:'C₉H₈O₄', ro5:'Pass' },
+  caffeine: { mw:'194.19', logP:'-0.07', hbd:'0', hba:'3', tpsa:'58.4', rb:'0', rings:'2', mf:'C₈H₁₀N₄O₂', ro5:'Pass' },
+  glucose:  { mw:'180.16', logP:'-2.97', hbd:'5', hba:'6', tpsa:'110.4', rb:'1', rings:'1', mf:'C₆H₁₂O₆', ro5:'Pass' },
+  ethanol:  { mw:'46.07',  logP:'-0.24', hbd:'1', hba:'1', tpsa:'20.2', rb:'0', rings:'0', mf:'C₂H₆O',  ro5:'Pass' },
+  benzene:  { mw:'78.11',  logP:'1.56',  hbd:'0', hba:'0', tpsa:'0.0',  rb:'0', rings:'1', mf:'C₆H₆',  ro5:'Pass' },
+  water:    { mw:'18.02',  logP:'-1.38', hbd:'2', hba:'1', tpsa:'20.2', rb:'0', rings:'0', mf:'H₂O',   ro5:'Pass' },
+};
+
+function calcProperties() {
+  const key = document.getElementById('propMolSelect').value;
+  if (!key) return;
+  const p = propData[key];
+  document.getElementById('propOutput').innerHTML = `
+    <table class="prop-table">
+      <tr><td>Molecular Formula</td><td>${p.mf}</td></tr>
+      <tr><td>Molecular Weight</td><td>${p.mw} g/mol</td></tr>
+      <tr><td>LogP (Wildman-Crippen)</td><td>${p.logP}</td></tr>
+      <tr><td>H-Bond Donors (HBD)</td><td>${p.hbd}</td></tr>
+      <tr><td>H-Bond Acceptors (HBA)</td><td>${p.hba}</td></tr>
+      <tr><td>Topological PSA</td><td>${p.tpsa} Ų</td></tr>
+      <tr><td>Rotatable Bonds</td><td>${p.rb}</td></tr>
+      <tr><td>Ring Count</td><td>${p.rings}</td></tr>
+      <tr><td>Lipinski Rule of Five</td><td>${p.ro5}</td></tr>
+    </table>`;
+}
+
+// ─────────────── SMILES BUILDER ───────────────
+const fragments = [
+  { label:'C', val:'C', desc:'Carbon' },
+  { label:'N', val:'N', desc:'Nitrogen' },
+  { label:'O', val:'O', desc:'Oxygen' },
+  { label:'S', val:'S', desc:'Sulfur' },
+  { label:'Cl', val:'Cl', desc:'Chlorine' },
+  { label:'Br', val:'Br', desc:'Bromine' },
+  { label:'F', val:'F', desc:'Fluorine' },
+  { label:'=', val:'=', desc:'Double bond' },
+  { label:'#', val:'#', desc:'Triple bond' },
+  { label:'(', val:'(', desc:'Branch open' },
+  { label:')', val:')', desc:'Branch close' },
+  { label:'1', val:'1', desc:'Ring closure 1' },
+  { label:'2', val:'2', desc:'Ring closure 2' },
+  { label:'c', val:'c', desc:'Aromatic C' },
+  { label:'n', val:'n', desc:'Aromatic N' },
+  { label:'[NH]', val:'[NH]', desc:'NH group' },
+  { label:'[OH]', val:'[OH]', desc:'OH group' },
+  { label:'Benzene', val:'c1ccccc1', desc:'Phenyl ring' },
+];
+
+let smilesArr = [];
+function buildFragGrid() {
+  const g = document.getElementById('fragGrid');
+  if (!g) return;
+  g.innerHTML = '';
+  fragments.forEach(f => {
+    const btn = document.createElement('button');
+    btn.className = 'frag-btn';
+    btn.textContent = f.label;
+    btn.title = f.desc;
+    btn.onclick = function(e) {
+      e.preventDefault();
+      addFrag(f.val);
+    };
+    g.appendChild(btn);
+  });
+}
+function addFrag(v) {
+  smilesArr.push(v);
+  updateSmilesOut();
+}
+function clearSmiles() { 
+  smilesArr = []; 
+  updateSmilesOut(); 
+}
+function backspaceSmiles() { 
+  smilesArr.pop(); 
+  updateSmilesOut(); 
+}
+function updateSmilesOut() {
+  const s = smilesArr.join('') || '_';
+  const outEl = document.getElementById('smilesOut');
+  if (outEl) outEl.textContent = s;
+  const infoEl = document.getElementById('smilesInfo');
+  if (infoEl) {
+    const info = s === '_' ? '' : `<strong style="color:var(--accent)">Tip:</strong> This SMILES has ${s.replace(/_/g,'').length} characters. In RDKit: <code style="color:var(--accent3)">Chem.MolFromSmiles("${s}")</code>`;
+    infoEl.innerHTML = info;
+  }
+}
+function copySMILES() {
+  const s = smilesArr.join('');
+  if (!s) return;
+  navigator.clipboard.writeText(s).then(() => { alert('SMILES copied: ' + s); });
+}
+
+// ─────────────── QUIZ ───────────────
+const questions = [
+  { q: 'What does SMILES stand for?', opts: ['Simplified Molecular Input Line Entry System','Standard Molecular Identification and Labeling Entry Scheme','Structural Molecule Index Library Encoding System','Scientific Molecular Info Line Exchange Standard'], ans: 0, fb: 'SMILES stands for Simplified Molecular Input Line Entry System. It was developed by David Weininger in 1988 and is the most widely used text format for chemical structures.' },
+  { q: 'In RDKit, which function converts a SMILES string to a molecule object?', opts: ['Chem.MolToSmiles()','Chem.MolFromSmiles()','Chem.DrawMolecule()','Chem.ParseSMILES()'], ans: 1, fb: 'Chem.MolFromSmiles("CCO") creates an RDKit molecule object from a SMILES string. The reverse, converting a molecule back to SMILES, uses Chem.MolToSmiles(mol).' },
+  { q: 'What does a lowercase letter in SMILES notation indicate?', opts: ['A radioactive atom','An aromatic atom','A negatively charged atom','A deuterium isotope'], ans: 1, fb: 'Lowercase letters in SMILES notation denote aromatic atoms. For example, c1ccccc1 represents benzene, while C1CCCCC1 would represent cyclohexane (non-aromatic).' },
+  { q: 'Which of these is the SMILES for water?', opts: ['HO','O','H2O','[H]O[H]'], ans: 1, fb: 'The SMILES for water is simply "O". RDKit assumes standard valences and adds implicit hydrogens automatically. [H]O[H] is valid but unnecessarily explicit.' },
+  { q: 'Lipinski\'s Rule of Five (Ro5) states a drug-like molecule should have a molecular weight of:', opts: ['Less than 100 Da','Less than 300 Da','Less than 500 Da','Less than 700 Da'], ans: 2, fb: 'Lipinski\'s Rule of Five states MW < 500 Da, logP ≤ 5, H-bond donors ≤ 5, and H-bond acceptors ≤ 10. RDKit\'s Chem.rdMolDescriptors module can calculate all these.' },
+  { q: 'What is a Morgan fingerprint used for in RDKit?', opts: ['Drawing 3D structures','Measuring molecular similarity','Calculating melting point','Predicting toxicity directly'], ans: 1, fb: 'Morgan fingerprints (also called ECFP — Extended Connectivity FingerPrints) encode circular neighborhoods around each atom. They are used to calculate Tanimoto similarity between molecules for virtual screening.' },
+  { q: 'Which programming language is the primary API for RDKit?', opts: ['Java','R','Python','MATLAB'], ans: 2, fb: 'RDKit is written in C++ for performance, but its primary user interface is Python. The Python bindings expose all RDKit functionality and integrate naturally with NumPy, Pandas, and scikit-learn.' },
+  { q: 'In RDKit SMILES, "CC(=O)O" represents which compound?', opts: ['Acetone','Acetic acid','Ethanol','Acetaldehyde'], ans: 1, fb: 'CC(=O)O is acetic acid (CH₃COOH). The C(=O)O group is the carboxyl group. Acetone would be CC(=O)C, and ethanol would be CCO.' },
+];
+
+let qIdx = 0, score = 0, answered = false;
+function loadQuestion() {
+  answered = false;
+  const nextBtn = document.getElementById('nextQBtn');
+  if (nextBtn) nextBtn.style.display = 'none';
+  
+  const q = questions[qIdx % questions.length];
+  const qEl = document.getElementById('quizQ');
+  if (qEl) qEl.textContent = (qIdx+1) + '. ' + q.q;
+  
+  const fbEl = document.getElementById('quizFeedback');
+  if (fbEl) fbEl.textContent = '';
+  
+  const progEl = document.getElementById('quizProgress');
+  if (progEl) progEl.style.width = ((qIdx / questions.length) * 100) + '%';
+  
+  const opts = document.getElementById('quizOpts');
+  if (opts) {
+    opts.innerHTML = '';
+    q.opts.forEach((o, i) => {
+      const btn = document.createElement('button');
+      btn.className = 'quiz-opt';
+      btn.textContent = o;
+      btn.onclick = function(e) {
+        e.preventDefault();
+        answerQ(i);
+      };
+      opts.appendChild(btn);
+    });
+  }
+}
+
+function answerQ(i) {
+  if (answered) return;
+  answered = true;
+  const q = questions[qIdx % questions.length];
+  const btns = document.querySelectorAll('.quiz-opt');
+  
+  btns[q.ans].classList.add('correct');
+  if (i !== q.ans) btns[i].classList.add('wrong');
+  if (i === q.ans) score++;
+  
+  const fbEl = document.getElementById('quizFeedback');
+  if (fbEl) fbEl.textContent = q.fb;
+  
+  const scoreEl = document.getElementById('quizScoreDisplay');
+  if (scoreEl) scoreEl.textContent = `Score: ${score} / ${qIdx+1}`;
+  
+  const nextBtn = document.getElementById('nextQBtn');
+  if (nextBtn) nextBtn.style.display = 'inline-block';
+}
+
+function nextQuestion() {
+  qIdx++;
+  if (qIdx >= questions.length) {
+    const qEl = document.getElementById('quizQ');
+    if (qEl) qEl.textContent = `🎉 Quiz Complete! You scored ${score}/${questions.length}.`;
+    
+    const opts = document.getElementById('quizOpts');
+    if (opts) opts.innerHTML = '';
+    
+    const fbEl = document.getElementById('quizFeedback');
+    if (fbEl) fbEl.textContent = score >= 6 ? 'Excellent! You have a strong grasp of RDKit fundamentals.' : 'Keep studying — RDKit has a lot to offer!';
+    
+    const nextBtn = document.getElementById('nextQBtn');
+    if (nextBtn) {
+      nextBtn.textContent = 'Restart';
+      nextBtn.onclick = function(e) {
+        e.preventDefault();
+        qIdx=0; 
+        score=0;
+        nextBtn.textContent='Next Question →';
+        nextBtn.onclick = nextQuestion;
+        loadQuestion();
+      };
+    }
+    
+    const progEl = document.getElementById('quizProgress');
+    if (progEl) progEl.style.width = '100%';
+    return;
+  }
+  loadQuestion();
+}
+
+// ─────────────── CODE SNIPPETS ───────────────
+const codeSnippets = [
+`<span class="cmt"># Install: pip install rdkit</span>
+<span class="kw">from</span> <span class="cls">rdkit</span> <span class="kw">import</span> Chem
+<span class="kw">from</span> <span class="cls">rdkit.Chem</span> <span class="kw">import</span> Draw, AllChem
+
+<span class="cmt"># Create molecule from SMILES</span>
+mol = Chem.<span class="fn">MolFromSmiles</span>(<span class="str">'c1ccccc1'</span>)  <span class="cmt"># Benzene</span>
+
+<span class="cmt"># Get canonical SMILES</span>
+smiles = Chem.<span class="fn">MolToSmiles</span>(mol)
+<span class="fn">print</span>(smiles)  <span class="cmt"># Output: c1ccccc1</span>
+
+<span class="cmt"># Get number of atoms</span>
+<span class="fn">print</span>(mol.<span class="fn">GetNumAtoms</span>())  <span class="cmt"># 6</span>
+
+<span class="cmt"># Save molecule as image</span>
+img = Draw.<span class="fn">MolToImage</span>(mol, size=(<span class="num">300</span>, <span class="num">300</span>))
+img.<span class="fn">save</span>(<span class="str">'benzene.png'</span>)`,
+
+`<span class="kw">from</span> <span class="cls">rdkit</span> <span class="kw">import</span> Chem
+<span class="kw">from</span> <span class="cls">rdkit.Chem</span> <span class="kw">import</span> Descriptors, rdMolDescriptors
+
+mol = Chem.<span class="fn">MolFromSmiles</span>(<span class="str">'CC(=O)Oc1ccccc1C(=O)O'</span>)  <span class="cmt"># Aspirin</span>
+
+<span class="cmt"># Molecular weight</span>
+mw = Descriptors.<span class="fn">MolWt</span>(mol)
+<span class="fn">print</span>(<span class="str">f"MW: {mw:.2f} g/mol"</span>)  <span class="cmt"># 180.16</span>
+
+<span class="cmt"># Lipophilicity</span>
+logp = Descriptors.<span class="fn">MolLogP</span>(mol)
+<span class="fn">print</span>(<span class="str">f"LogP: {logp:.2f}"</span>)  <span class="cmt"># 1.19</span>
+
+<span class="cmt"># H-bond donors and acceptors</span>
+hbd = rdMolDescriptors.<span class="fn">CalcNumHBD</span>(mol)
+hba = rdMolDescriptors.<span class="fn">CalcNumHBA</span>(mol)
+<span class="fn">print</span>(<span class="str">f"HBD: {hbd}, HBA: {hba}"</span>)  <span class="cmt"># 1, 4</span>
+
+<span class="cmt"># Topological Polar Surface Area</span>
+tpsa = Descriptors.<span class="fn">TPSA</span>(mol)
+<span class="fn">print</span>(<span class="str">f"TPSA: {tpsa:.1f} Å²"</span>)  <span class="cmt"># 63.6</span>`,
+
+`<span class="kw">from</span> <span class="cls">rdkit</span> <span class="kw">import</span> Chem, DataStructs
+<span class="kw">from</span> <span class="cls">rdkit.Chem</span> <span class="kw">import</span> AllChem
+
+<span class="cmt"># Create two molecules</span>
+mol1 = Chem.<span class="fn">MolFromSmiles</span>(<span class="str">'c1ccccc1'</span>)    <span class="cmt"># benzene</span>
+mol2 = Chem.<span class="fn">MolFromSmiles</span>(<span class="str">'c1ccc(O)cc1'</span>)  <span class="cmt"># phenol</span>
+
+<span class="cmt"># Generate Morgan fingerprints (radius=2 = ECFP4)</span>
+fp1 = AllChem.<span class="fn">GetMorganFingerprintAsBitVect</span>(mol1, <span class="num">2</span>)
+fp2 = AllChem.<span class="fn">GetMorganFingerprintAsBitVect</span>(mol2, <span class="num">2</span>)
+
+<span class="cmt"># Calculate Tanimoto similarity (0=different, 1=identical)</span>
+sim = DataStructs.<span class="fn">TanimotoSimilarity</span>(fp1, fp2)
+<span class="fn">print</span>(<span class="str">f"Tanimoto: {sim:.3f}"</span>)  <span class="cmt"># ~0.5</span>
+
+<span class="cmt"># Substructure search</span>
+pattern = Chem.<span class="fn">MolFromSmarts</span>(<span class="str">'c1ccccc1'</span>)  <span class="cmt"># benzene ring</span>
+<span class="fn">print</span>(mol2.<span class="fn">HasSubstructMatch</span>(pattern))  <span class="cmt"># True</span>`
+];
+
+let activeCode = 0;
+function switchCode(i, btn) {
+  activeCode = i;
+  document.querySelectorAll('.code-tab').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('codeBlock').innerHTML = codeSnippets[i];
+}
+
+// ─────────────── TAB SWITCHER ───────────────
+function switchTab(id, btn) {
+  document.querySelectorAll('.tool-panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  const panel = document.getElementById('tab-'+id);
+  if (panel) panel.classList.add('active');
+  if (btn) btn.classList.add('active');
+}
+
+// ─────────────── SCROLL REVEAL ───────────────
+const observer = new IntersectionObserver(entries => {
+  entries.forEach(e => { if (e.isIntersecting) e.target.classList.add('visible'); });
+}, { threshold: 0.1 });
+document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
+
+// ─────────────── INIT ───────────────
+function initPage() {
+  console.log('Page initialization started');
+  
+  // Initialize 3D viewer immediately
+  try {
+    console.log('Initializing 3D viewer...');
+    init3DViewer();
+    console.log('3D viewer initialized');
+  } catch(e) { console.log('3D viewer init error:', e); }
+  
+  // Load molecule after a delay to ensure 3D viewer is ready
+  try {
+    setTimeout(() => {
+      console.log('Loading initial molecule...');
+      loadMolecule();
+      console.log('Initial molecule loaded');
+    }, 200);
+  } catch(e) { console.log('Molecule load error:', e); }
+  
+  // Initialize 2D canvas controls
+  try {
+    init2DCanvasControls();
+  } catch(e) { console.log('2D canvas init:', e); }
+  
+  try {
+    buildFragGrid();
+    updateSmilesOut();
+  } catch(e) { console.log('SMILES init:', e); }
+  
+  try {
+    loadQuestion();
+  } catch(e) { console.log('Quiz init:', e); }
+  
+  try {
+    document.getElementById('codeBlock').innerHTML = codeSnippets[0];
+  } catch(e) { console.log('Code init:', e); }
+  
+  // Add molecule selector listener
+  try {
+    const molSelect = document.getElementById('molSelect');
+    if (molSelect) {
+      molSelect.addEventListener('change', function(e) {
+        loadMolecule();
+      });
+    }
+  } catch(e) { console.log('Mol selector:', e); }
+  
+  // Add property selector listener
+  try {
+    const propSelect = document.getElementById('propMolSelect');
+    if (propSelect) {
+      propSelect.addEventListener('change', function(e) {
+        calcProperties();
+      });
+    }
+  } catch(e) { console.log('Prop selector:', e); }
+  
+  // Add SMILES button listeners
+  try {
+    const clearBtn = document.getElementById('clearSmilesBtn');
+    const undoBtn = document.getElementById('undoSmilesBtn');
+    const copyBtn = document.getElementById('copySmilesBtn');
+    
+    if (clearBtn) clearBtn.addEventListener('click', function(e) { e.preventDefault(); clearSmiles(); });
+    if (undoBtn) undoBtn.addEventListener('click', function(e) { e.preventDefault(); backspaceSmiles(); });
+    if (copyBtn) copyBtn.addEventListener('click', function(e) { e.preventDefault(); copySMILES(); });
+  } catch(e) { console.log('Button listeners:', e); }
+  
+  // Add code tab listeners
+  try {
+    for (let i = 0; i < 3; i++) {
+      const tab = document.getElementById('codeTab' + i);
+      if (tab) {
+        tab.addEventListener('click', function(e) {
+          e.preventDefault();
+          switchCode(i, this);
+        });
+      }
+    }
+  } catch(e) { console.log('Code tab listeners:', e); }
+  
+  // Add 2D reset button listener
+  try {
+    const reset2DBtn = document.getElementById('reset2DBtn');
+    if (reset2DBtn) {
+      reset2DBtn.addEventListener('click', function(e) {
+        e.preventDefault();
+        canvas2DState.scale = 1;
+        canvas2DState.offsetX = 0;
+        canvas2DState.offsetY = 0;
+        const key = document.getElementById('molSelect').value;
+        drawMolecule(key);
+      });
+    }
+  } catch(e) { console.log('Reset button:', e); }
+  
+  // Add mobile control button listeners
+  try {
+    const zoomInBtn = document.getElementById('zoomInBtn');
+    const zoomOutBtn = document.getElementById('zoomOutBtn');
+    const toggleGridBtn = document.getElementById('toggleGridBtn');
+    const toggleMeasureBtn = document.getElementById('toggleMeasureBtn');
+    
+    if (zoomInBtn) {
+      zoomInBtn.addEventListener('click', function(e) {
+        e.preventDefault();
+        canvas2DState.scale += 0.3;
+        canvas2DState.scale = Math.max(0.3, Math.min(3, canvas2DState.scale));
+        const key = document.getElementById('molSelect').value;
+        drawMolecule(key);
+      });
+    }
+    
+    if (zoomOutBtn) {
+      zoomOutBtn.addEventListener('click', function(e) {
+        e.preventDefault();
+        canvas2DState.scale -= 0.3;
+        canvas2DState.scale = Math.max(0.3, Math.min(3, canvas2DState.scale));
+        const key = document.getElementById('molSelect').value;
+        drawMolecule(key);
+      });
+    }
+    
+    if (toggleGridBtn) {
+      toggleGridBtn.addEventListener('click', function(e) {
+        e.preventDefault();
+        canvas2DState.showGrid = !canvas2DState.showGrid;
+        const key = document.getElementById('molSelect').value;
+        drawMolecule(key);
+      });
+    }
+    
+    if (toggleMeasureBtn) {
+      toggleMeasureBtn.addEventListener('click', function(e) {
+        e.preventDefault();
+        canvas2DState.showMeasurements = !canvas2DState.showMeasurements;
+        const key = document.getElementById('molSelect').value;
+        drawMolecule(key);
+      });
+    }
+  } catch(e) { console.log('Mobile buttons:', e); }
+  
+  // Add tab-btn listeners
+  try {
+    const tabButtons = document.querySelectorAll('.tab-btn');
+    tabButtons.forEach(btn => {
+      btn.addEventListener('click', function(e) {
+        e.preventDefault();
+        const tabId = this.getAttribute('data-tab');
+        switchTab(tabId, this);
+      });
+    });
+  } catch(e) { console.log('Tab listeners:', e); }
+}
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', initPage);
+} else {
+  initPage();
+}
+</script>
+</body>
+</html>
